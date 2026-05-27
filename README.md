@@ -1,12 +1,10 @@
 # Streaming Reinforcement Learning under Partial Observability with Real-Time Recurrent Learning
 
-Official JAX implementation of the paper **"Streaming Reinforcement Learning
-under Partial Observability with Real-Time Recurrent Learning"** by
-Noah Farr\*, Aryaman Reddi\*, Carlo D'Eramo, and Jan Peters.
+Official JAX implementation of the paper [**Streaming Reinforcement Learning
+under Partial Observability with Real-Time Recurrent Learning**](paper.pdf) by
+Noah Farr, Aryaman Reddi, Carlo D'Eramo, and Jan Peters.
 
-<sub>\*Equal contribution. Technical University of Darmstadt · University of Würzburg · Hessian.AI · DFKI · Zuse School ELIZA</sub>
-
-📄 **[Read the paper](paper.pdf)**
+Technical University of Darmstadt · University of Würzburg · Hessian.AI · DFKI · Zuse School ELIZA</sub>
 
 ## Abstract
 
