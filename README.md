@@ -1,74 +1,90 @@
-# Recurrent Streaming Reinforcement Learning
+# Streaming Reinforcement Learning under Partial Observability with Real-Time Recurrent Learning
 
-JAX implementation of the experiments in *Streaming Reinforcement Learning under
-Partial Observability with Real-Time Recurrent Learning*. A Recurrent Trace Unit
-(RTU) layer trained by exact real-time recurrent learning (RTRL) is inserted
-between the observation and the feedforward head of a streaming RL algorithm,
-propagating credit through both the recurrent state and time without truncation.
+Official JAX implementation of the paper **"Streaming Reinforcement Learning
+under Partial Observability with Real-Time Recurrent Learning"** by
+Noah Farr\*, Aryaman Reddi\*, Carlo D'Eramo, and Jan Peters.
 
-## Install
+<sub>\*Equal contribution. Technical University of Darmstadt · University of Würzburg · Hessian.AI · DFKI · Zuse School ELIZA</sub>
+
+📄 **[Read the paper](paper.pdf)**
+
+## Abstract
+
+Streaming reinforcement learning has emerged as an online learning paradigm that
+conforms to the restrictions of natural learning agents that process data
+incrementally, i.e. with a batch size of 1 and no replay buffer. While streaming
+RL has recently been shown to scale with deep function approximation under full
+observability, partially observable settings have remained out of reach.
+Truncated backpropagation through time collapses to a one-step gradient horizon
+under the streaming setting, and exact real-time recurrent learning is
+prohibitively expensive. We close this gap using **Recurrent Trace Units
+(RTUs)**, a diagonal recurrent architecture that enables exact RTRL with linear
+time and memory complexity in the parameter count, and show that they integrate
+cleanly into existing streaming algorithms across both discrete and continuous
+control. On a MemoryChain diagnostic with chain lengths from 2 to 128, our method
+sustains performance where streaming TBPTT(1) baselines using feedforward, GRU,
+and RTU networks collapse. On five POPGym tasks and on partially observable
+MuJoCo continuous control, the streaming approach is competitive with batched PPO
+on POPGym and recovers a substantial fraction of batched performance on masked
+MuJoCo, despite using no replay buffer or batched updates.
+
+## Method
+
+An RTU layer trained by exact real-time recurrent learning (RTRL) is inserted
+between the observation and the feedforward head of an existing streaming RL
+algorithm. The streaming update machinery — eligibility traces and step-size
+adaptation — is left unchanged: the RTRL trace and the eligibility trace compose
+without modification, yielding a single-pass procedure that propagates credit
+through both the recurrent state and time, with no truncation and no replay
+buffer.
+
+## Installation
 
 ```bash
 uv sync
 ```
 
-## Algorithms
+## Quickstart
 
-`config/algorithm/`:
-
-- `qrc` — QRC(λ), value-based streaming control.
-- `stream_ac` — stream AC(λ), policy-based streaming control.
-- `ppo` — batched PPO baseline (relaxes the streaming constraint with a replay/rollout buffer).
-
-## Recurrent cells and credit assignment
-
-`config/cell/`: `rtu` (Recurrent Trace Unit), `gru`, `ffn` (feedforward identity).
-
-`config/mode/` toggles how the cell is credited:
-
-- `bptt` — truncated backpropagation through time (TBPTT(1) under streaming).
-- `rtrl` — wraps the cell with `src.cells.RTRL` for an exact online gradient.
-
-## Environments
-
-`config/environment/`:
-
-- `gymnax/bsuite/memory_chain` — MemoryChain diagnostic (Section 4.1).
-- `popjym/easy/{autoencode,concentration,count_recall,higher_lower,repeat_first}` — five POPGym memory tasks (Section 4.2).
-- `brax/{ant,halfcheetah,hopper,walker2d}` — masked MuJoCo continuous control; mask positions (`environment.kwargs.mode=P`) or velocities (`V`) (Section 4.3).
-- `rsrl/k_memory_chain` — KMemoryChain, an every-step memory variant used for the RTRL staleness analysis (Section 4.4).
-
-## Run a single experiment
+Run a single configuration (algorithm × environment × cell × credit-assignment mode):
 
 ```bash
 uv run main.py algorithm=qrc environment=gymnax/bsuite/memory_chain cell=rtu mode=rtrl
 ```
 
-Algorithm-specific hyperparameters are picked up automatically via the
-`cascading_fallback` resolver from `config/hyperparameters/`. Override anything at
-the CLI, e.g. `algorithm.gamma=0.95`, `num_seeds=10`,
-`cell.cell.config.features=64`, `logger=[wandb]`.
+- **Algorithms** (`config/algorithm/`): `qrc` — QRC(λ); `stream_ac` — stream AC(λ); `ppo` — batched PPO baseline.
+- **Cells** (`config/cell/`): `rtu` (Recurrent Trace Unit), `gru`, `ffn` (feedforward identity).
+- **Modes** (`config/mode/`): `bptt` (TBPTT(1) under streaming) and `rtrl` (exact online gradient via `src.cells.RTRL`).
 
-## Paper experiments
+Algorithm-specific hyperparameters are resolved automatically from
+`config/hyperparameters/`. Override anything at the CLI, e.g.
+`algorithm.gamma=0.95`, `num_seeds=10`, `cell.cell.config.features=64`,
+`logger=[wandb]`.
 
-Predefined sweeps live in `config/experiment/`, selected with `experiment=<name>`:
+## Reproducing the paper
+
+Predefined sweeps live in `config/experiment/` and are selected with `experiment=<name>`:
 
 | Experiment | Paper section |
 | --- | --- |
-| `qrc_memory_chain` | 4.1 MemoryChain |
-| `qrc_popjym`, `stream_ac_popjym`, `ppo_popjym` | 4.2 POPGym |
-| `stream_ac_brax`, `ppo_brax` | 4.3 Masked MuJoCo |
-| `qrc_k_memory_chain`, `stream_ac_k_memory_chain`, `k_memory_chain` | 4.4 RTRL staleness |
+| `qrc_memory_chain` | 4.1 — MemoryChain |
+| `qrc_popjym`, `stream_ac_popjym`, `ppo_popjym` | 4.2 — POPGym |
+| `stream_ac_brax`, `ppo_brax` | 4.3 — Masked MuJoCo |
+| `qrc_k_memory_chain`, `stream_ac_k_memory_chain`, `k_memory_chain` | 4.4 — RTRL staleness |
 
 ```bash
 uv run main.py experiment=qrc_popjym
 uv run main.py experiment=stream_ac_brax
 ```
 
-Each experiment pins algorithm/mode/cell/logger and declares a Hydra multirun
-sweep over seeds, environments, and cell variants.
+Each experiment file pins algorithm/mode/cell/logger and declares a Hydra
+multirun sweep over seeds, environments, and cell variants. Benchmarks:
+MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
+(`popjym/easy/*`), masked MuJoCo (`brax/*`, mask positions with
+`environment.kwargs.mode=P` or velocities with `V`), and KMemoryChain
+(`rsrl/k_memory_chain`).
 
-## Layout
+## Repository layout
 
 ```
 src/
@@ -83,3 +99,19 @@ src/
 config/                # hydra: algorithm, environment, cell, mode, hyperparameters, experiment, logger
 main.py                # entry point
 ```
+
+## Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@article{farr2026streaming,
+  title   = {Streaming Reinforcement Learning under Partial Observability with Real-Time Recurrent Learning},
+  author  = {Farr, Noah and Reddi, Aryaman and D'Eramo, Carlo and Peters, Jan},
+  year    = {2026}
+}
+```
+
+## License
+
+Released under the MIT License — see [LICENSE](LICENSE).
