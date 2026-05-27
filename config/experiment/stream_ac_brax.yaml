@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - override /algorithm: stream_ac
+  - override /mode: rtrl
+  - override /logger: [wandb]
+
+num_seeds: 1
+deterministic: false
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      seed: 0,1,2,3,4
+      cell: ffn,rtu
+      environment: brax/ant,brax/hopper,brax/halfcheetah,brax/walker2d
+      environment.kwargs.mode: P,V

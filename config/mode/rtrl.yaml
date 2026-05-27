@@ -1,0 +1,16 @@
+# @package _global_
+mode:
+  name: rtrl
+  track: false
+  staleness_interval: 1
+  track_window: ${environment.env_params.max_steps_in_episode}
+  taylor_sensitivity: false
+  second_order: false
+torso:
+  _target_: src.cells.RTRL
+  sequence_model: ${cell}
+  track: ${..mode.track}
+  staleness_interval: ${..mode.staleness_interval}
+  track_window: ${..mode.track_window}
+  taylor_sensitivity: ${..mode.taylor_sensitivity}
+  second_order: ${..mode.second_order}

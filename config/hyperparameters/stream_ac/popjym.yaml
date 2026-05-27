@@ -1,0 +1,8 @@
+# @package _global_
+
+algorithm:
+  trace_lambda: 0.95
+  entropy_coefficient: 0.01
+
+total_timesteps: 5_000_000
+num_epochs: 25

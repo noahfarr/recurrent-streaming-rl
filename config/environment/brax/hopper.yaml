@@ -1,0 +1,8 @@
+namespace: brax
+suite: brax
+env_id: hopper
+kwargs:
+  mode: F
+  backend: positional
+env_params:
+  max_steps_in_episode: 1000

@@ -1,0 +1,19 @@
+total_timesteps: 500_000
+num_epochs: 10
+num_episodes: 0
+deterministic: true
+seed: 0
+num_seeds: 1
+
+loggers: {}
+
+defaults:
+  - _self_
+  - algorithm: ppo
+  - environment: popjym/easy/repeat_first
+  - cell: ffn
+  - mode: bptt
+  - logger: default
+  - experiment: null
+  - optional hyperparameters: ${cascading_fallback:${algorithm},${environment},${cell}}
+

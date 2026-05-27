@@ -1,0 +1,7 @@
+namespace: popjym
+suite: popjym
+env_id: Autoencode
+kwargs:
+  difficulty: Easy
+env_params:
+  max_steps_in_episode: 105

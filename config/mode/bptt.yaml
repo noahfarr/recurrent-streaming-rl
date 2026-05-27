@@ -1,0 +1,4 @@
+# @package _global_
+mode:
+  name: bptt
+torso: ${cell}

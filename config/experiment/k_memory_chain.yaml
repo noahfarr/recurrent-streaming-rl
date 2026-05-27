@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - override /environment: rsrl/k_memory_chain
+  - override /cell: rtu
+  - override /mode: rtrl
+  - override /logger: [dashboard,wandb]
+
+mode:
+  track: true
+  staleness_interval: 1
+
+cell:
+  cell:
+    config:
+      features: 128
+
+num_seeds: 5
+num_episodes: 0
+num_epochs: 50
+deterministic: true
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      algorithm: qrc,stream_ac
+      mode.taylor_sensitivity: false,true
+      environment.kwargs.memory_length: 4,8,16

@@ -1,0 +1,5 @@
+_target_: memorax.networks.RNN
+name: gru
+cell:
+  _target_: flax.linen.GRUCell
+  features: 192

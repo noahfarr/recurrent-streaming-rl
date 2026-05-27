@@ -1,0 +1,18 @@
+# @package _global_
+
+defaults:
+  - override /algorithm: ppo
+  - override /mode: rtrl
+  - override /cell: rtu
+  - override /logger: [dashboard,wandb]
+
+num_seeds: 1
+deterministic: false
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      seed: 0,1,2,3,4
+      environment: brax/ant,brax/hopper,brax/halfcheetah,brax/walker2d
+      environment.kwargs.mode: P,V

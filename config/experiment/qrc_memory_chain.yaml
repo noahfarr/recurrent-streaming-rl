@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - override /algorithm: qrc
+  - override /environment: gymnax/bsuite/memory_chain
+  - override /logger: [dashboard,wandb]
+
+num_seeds: 5
+num_epochs: 25
+deterministic: True
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      cell: rtu
+      mode: bptt,rtrl
+      environment.env_params.max_steps_in_episode: 48
