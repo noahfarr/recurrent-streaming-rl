@@ -3,4 +3,4 @@
 algorithm:
   trace_lambda: 0.95
 
-total_timesteps: 300_000
+total_timesteps: 500_000

@@ -4,7 +4,7 @@ cell:
   _target_: src.cells.RTUCell
   config:
     _target_: src.cells.RTUConfig
-    features: 128
+    features: 64
     hidden_dim: 192
     r_min: 0.0
     r_max: 1.0

@@ -12,7 +12,7 @@ mode:
 cell:
   cell:
     config:
-      features: 128
+      features: 64
 
 num_seeds: 5
 num_episodes: 0

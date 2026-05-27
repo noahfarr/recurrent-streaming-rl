@@ -19,4 +19,4 @@ hydra:
   sweeper:
     params:
       mode.taylor_sensitivity: true,false
-      environment.kwargs.memory_length: 4,8,16,32
+      environment.kwargs.memory_length: 4,8,16
