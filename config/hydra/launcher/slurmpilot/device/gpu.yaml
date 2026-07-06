@@ -1,0 +1,7 @@
+# @package hydra.launcher
+partition: gpu
+n_gpus: 1
+env:
+  JAX_PLATFORMS: cuda,cpu
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+  XLA_PYTHON_CLIENT_ALLOCATOR: cuda_async

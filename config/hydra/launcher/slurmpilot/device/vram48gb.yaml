@@ -1,0 +1,7 @@
+# @package hydra.launcher
+defaults:
+  - gpu
+  - _self_
+
+# Resolves to gn11; may land on either the rtx6000Ada or a6000 card there.
+sbatch_arguments: "--output=logs/stdout-%a --error=logs/stderr-%a --exclude=dgx-station --constraint=vram48gb"

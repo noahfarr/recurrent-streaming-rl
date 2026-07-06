@@ -1,0 +1,5 @@
+# @package hydra.launcher
+partition: stud
+n_gpus: 0
+env:
+  JAX_PLATFORMS: cpu
