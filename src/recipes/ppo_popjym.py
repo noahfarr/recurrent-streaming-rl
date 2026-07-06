@@ -5,15 +5,12 @@ import numpy as np
 import optax
 from flax.linen.initializers import constant, orthogonal
 from hydra.utils import instantiate
-from memorax.algorithms.ppo import PPO as MemoraxPPO
-from memorax.networks import Network, heads
 
-from src.algorithms.ppo.ppo import PPO as LocalPPO
+from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
-from src.environments.wrappers import (
-    NormalizeVecObservation,
-    NormalizeVecReward,
-)
+from src.environments.wrappers import NormalizeVecObservation, NormalizeVecReward
+from src.networks import build_cell, heads
+from src.networks.network import Network
 
 
 class FeatureExtractor(nn.Module):
@@ -23,14 +20,14 @@ class FeatureExtractor(nn.Module):
     @nn.compact
     def __call__(self, observation, action, reward, done, **kwargs):
         action_embedding = jax.nn.one_hot(action, num_classes=self.num_actions)
-        x = jnp.concatenate([observation, action_embedding, reward], axis=-1)
+        x = jnp.concatenate([observation, action_embedding, reward[None]], axis=-1)
         x = nn.Dense(
             self.features,
             kernel_init=orthogonal(np.sqrt(2)),
             bias_init=constant(0.0),
         )(x)
         x = nn.tanh(x)
-        return x, {}
+        return x
 
 
 class HeadMLP(nn.Module):
@@ -47,9 +44,6 @@ class HeadMLP(nn.Module):
         x = nn.tanh(x)
         return self.head(x, **kwargs)
 
-    def loss(self, *args, **kwargs):
-        return self.head.loss(*args, **kwargs)
-
 
 def make(cfg):
     env, env_params = environment.make(**cfg.environment)
@@ -58,7 +52,7 @@ def make(cfg):
 
     num_actions = env.action_space(env_params).n
     feature_extractor = FeatureExtractor(features=64, num_actions=num_actions)
-    torso = instantiate(cfg.torso)
+    cell = build_cell(cfg)
     actor_head = HeadMLP(
         hidden_features=64,
         head=heads.Categorical(
@@ -74,16 +68,8 @@ def make(cfg):
             bias_init=constant(0.0),
         ),
     )
-    actor_network = Network(
-        feature_extractor=feature_extractor,
-        torso=torso,
-        head=actor_head,
-    )
-    critic_network = Network(
-        feature_extractor=feature_extractor,
-        torso=torso,
-        head=critic_head,
-    )
+    actor_network = Network(feature_extractor=feature_extractor, cell=cell, head=actor_head)
+    critic_network = Network(feature_extractor=feature_extractor, cell=cell, head=critic_head)
 
     def make_optimizer(learning_rate):
         return optax.chain(
@@ -93,9 +79,7 @@ def make(cfg):
             ),
         )
 
-    ppo_cls = MemoraxPPO if cfg.mode.name == "bptt" else LocalPPO
-
-    return ppo_cls(
+    return PPO(
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,

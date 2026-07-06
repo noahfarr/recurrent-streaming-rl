@@ -1,6 +1,0 @@
-# @package _global_
-
-algorithm:
-  trace_lambda: 0.95
-
-total_timesteps: 300_000

@@ -49,22 +49,21 @@ def main(cfg):
     state = init(jax.random.split(init_key, cfg.num_seeds))
 
     def extract(data, prefix):
-        info = data.pop("info")
-        returned_episode = info["returned_episode"]
+        returned_episode = data.pop("returned_episode")
+        # Keep the leading per-seed axis, average over everything else (steps,
+        # and for batched algorithms like PPO, num_envs too).
+        reduce_axes = tuple(range(1, returned_episode.ndim))
 
         result = {}
         if returned_episode.any():
-            result[f"{prefix}/episode_returns"] = jnp.mean(
-                info["returned_episode_returns"], where=returned_episode, axis=(1, 2)
-            )
-            result[f"{prefix}/episode_lengths"] = jnp.mean(
-                info["returned_episode_lengths"], where=returned_episode, axis=(1, 2)
-            )
-            result[f"{prefix}/discounted_episode_returns"] = jnp.mean(
-                info["returned_discounted_episode_returns"],
-                where=returned_episode,
-                axis=(1, 2),
-            )
+            for key, name in (
+                ("returned_episode_returns", "episode_returns"),
+                ("returned_episode_lengths", "episode_lengths"),
+                ("returned_discounted_episode_returns", "discounted_episode_returns"),
+            ):
+                result[f"{prefix}/{name}"] = jnp.mean(
+                    data.pop(key), where=returned_episode, axis=reduce_axes
+                )
         if data:
             result.update(jax.vmap(lambda x: jax.tree.map(jnp.mean, x))(data))
         return result

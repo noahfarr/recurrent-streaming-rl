@@ -1,17 +1,18 @@
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
-import optax
 from hydra.utils import instantiate
-from memorax.environments.wrappers import (
+from streax.algorithms import RecurrentACLambda
+from streax.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
 )
-from memorax.networks import Network, heads
-from memorax.networks.initializers import sparse
+from streax.networks import sparse
+from streax.optimizers import ObGD, ObGDConfig
 
-from src.algorithms.qrc import QRC
 from src.environments import environment
+from src.networks import build_cell, heads
+from src.networks.network import Network
 
 
 class FeatureExtractor(nn.Module):
@@ -21,11 +22,11 @@ class FeatureExtractor(nn.Module):
     @nn.compact
     def __call__(self, observation, action, reward, done, **kwargs):
         action_embedding = jax.nn.one_hot(action, num_classes=self.num_actions)
-        x = jnp.concatenate([observation, action_embedding, reward], axis=-1)
+        x = jnp.concatenate([observation, action_embedding, reward[None]], axis=-1)
         x = nn.Dense(self.features, kernel_init=sparse(sparsity=0.9))(x)
         x = nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5)(x)
         x = nn.leaky_relu(x)
-        return x, {}
+        return x
 
 
 class HeadMLP(nn.Module):
@@ -39,9 +40,6 @@ class HeadMLP(nn.Module):
         x = nn.leaky_relu(x)
         return self.head(x, **kwargs)
 
-    def loss(self, *args, **kwargs):
-        return self.head.loss(*args, **kwargs)
-
 
 def make(cfg):
     env, env_params = environment.make(**cfg.environment)
@@ -51,46 +49,44 @@ def make(cfg):
     num_actions = env.action_space(env_params).n
     feature_extractor = FeatureExtractor(features=64, num_actions=num_actions)
 
-    torso = instantiate(cfg.torso)
+    cell = build_cell(cfg)
 
-    q_network = Network(
+    actor_network = Network(
         feature_extractor=feature_extractor,
-        torso=torso,
+        cell=cell,
         head=HeadMLP(
             hidden_features=64,
-            head=heads.DiscreteQNetwork(
+            head=heads.Categorical(
                 action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
             ),
         ),
     )
-    h_network = Network(
+    critic_network = Network(
         feature_extractor=feature_extractor,
-        torso=torso,
+        cell=cell,
         head=HeadMLP(
             hidden_features=64,
-            head=heads.DiscreteQNetwork(
-                action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
-            ),
+            head=heads.VNetwork(kernel_init=sparse(sparsity=0.9)),
         ),
     )
 
-    epsilon_schedule = optax.linear_schedule(
-        cfg.epsilon_start,
-        cfg.epsilon_end,
-        int(cfg.total_timesteps * cfg.epsilon_fraction),
+    shared = dict(beta2=cfg.beta2, eps=cfg.eps, adaptive=cfg.adaptive)
+    actor_optimizer = ObGD(
+        cfg=ObGDConfig(lr=cfg.actor_lr, kappa=cfg.actor_kappa, **shared),
+        name="actor_optimizer",
+    )
+    critic_optimizer = ObGD(
+        cfg=ObGDConfig(lr=cfg.critic_lr, kappa=cfg.critic_kappa, **shared),
+        name="critic_optimizer",
     )
 
-    q_optimizer = optax.chain(optax.clip_by_global_norm(1.0), optax.sgd(cfg.q_lr))
-    h_optimizer = optax.chain(optax.clip_by_global_norm(1.0), optax.sgd(cfg.h_lr))
-
-    agent = QRC(
+    agent = RecurrentACLambda(
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,
-        q_network=q_network,
-        h_network=h_network,
-        q_optimizer=q_optimizer,
-        h_optimizer=h_optimizer,
-        epsilon_schedule=epsilon_schedule,
+        actor_network=actor_network,
+        critic_network=critic_network,
+        actor_optimizer=actor_optimizer,
+        critic_optimizer=critic_optimizer,
     )
     return agent

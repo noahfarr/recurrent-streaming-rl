@@ -9,15 +9,14 @@ num_seeds: 1
 seed: 0
 
 cell:
-  cell:
-    config:
-      features: 64
-      activation_fn:
-        _target_: src.utils.identity.identity
-        _partial_: true
-      output_activation_fn:
-        _target_: jax.numpy.tanh
-        _partial_: true
+  config:
+    features: 64
+    activation_fn:
+      _target_: src.utils.identity.identity
+      _partial_: true
+    output_activation_fn:
+      _target_: jax.numpy.tanh
+      _partial_: true
 
 hydra:
   mode: MULTIRUN

@@ -9,11 +9,9 @@ import lox
 import optax
 from flax import core, struct
 
-from memorax.utils import Timestep, Transition, utils
-from memorax.utils.axes import remove_feature_axis, remove_time_axis
-from memorax.utils.typing import (
+from streax.utils import Timestep, Transition, canonicalize_dtype
+from streax.utils.typing import (
     Array,
-    Carry,
     Discrete,
     Environment,
     EnvParams,
@@ -21,6 +19,12 @@ from memorax.utils.typing import (
     Key,
     PyTree,
 )
+
+Carry = PyTree
+
+
+def broadcast_done(done: Array, leaf: Array) -> Array:
+    return done.reshape(done.shape + (1,) * (leaf.ndim - done.ndim))
 
 
 @struct.dataclass(frozen=True)
@@ -35,7 +39,6 @@ class PPOConfig:
     clip_coefficient: float
     clip_value_loss: bool
     entropy_coefficient: float
-    burn_in_length: int = 0
 
     @property
     def batch_size(self):
@@ -50,14 +53,24 @@ class PPOState:
     env_state: EnvState
     actor_params: core.FrozenDict[str, Any]
     actor_optimizer_state: optax.OptState
-    actor_carry: Array
+    actor_carry: Carry
     critic_params: core.FrozenDict[str, Any]
     critic_optimizer_state: optax.OptState
-    critic_carry: Array
+    critic_carry: Carry
 
 
 @dataclass
 class PPO:
+    """Batched PPO baseline.
+
+    Each replayed sample carries its own stored (carry, ...) from collection
+    time, so shuffled-minibatch updates work for any recurrent cell: a plain
+    RNN-wrapped cell gives the standard TBPTT(1) gradient (the carry is a
+    fixed input, not a function of params), while an RTRL-wrapped cell
+    additionally injects the accumulated real-time-recurrent gradient through
+    its stored influence. Both modes share this same training loop.
+    """
+
     cfg: PPOConfig
     env: Environment
     env_params: EnvParams
@@ -67,82 +80,52 @@ class PPO:
     critic_optimizer: optax.GradientTransformation
 
     def __post_init__(self):
-        assert (
-            self.cfg.update_epochs >= 1
-        ), f"update_epochs ({self.cfg.update_epochs}) must be >= 1"
-        assert (
-            self.cfg.batch_size % self.cfg.num_minibatches == 0
-        ), f"num_envs * num_steps ({self.cfg.batch_size}) must be divisible by num_minibatches ({self.cfg.num_minibatches})"
-        for name, network in (
-            ("actor_network", self.actor_network),
-            ("critic_network", self.critic_network),
-        ):
-            assert "RTRL(" in repr(network), (
-                f"{name} must contain an RTRL torso. This PPO stores per-timestep "
-                f"carries in transition.aux so shuffled minibatch updates can replay "
-                f"each sample with its own carry+sensitivity; without RTRL the "
-                f"sensitivity is unused and gradients through the recurrence collapse "
-                f"to BPTT(1). Use mode=rtrl in your config."
-            )
+        assert self.cfg.update_epochs >= 1, (
+            f"update_epochs ({self.cfg.update_epochs}) must be >= 1"
+        )
+        assert self.cfg.batch_size % self.cfg.num_minibatches == 0, (
+            f"num_envs * num_steps ({self.cfg.batch_size}) must be divisible by "
+            f"num_minibatches ({self.cfg.num_minibatches})"
+        )
+
+    def _apply(self, network: nn.Module, params, carry, timestep) -> tuple:
+        return jax.vmap(network.apply, in_axes=(None, 0, 0, 0, 0, 0))(
+            params, carry, *timestep
+        )
 
     def _deterministic_action(
         self, key: Key, state: PPOState
-    ) -> tuple[PPOState, Array, Array, None, dict]:
-        (actor_carry, (probs, _)), intermediates = self.actor_network.apply(
-            state.actor_params,
-            *state.timestep.to_sequence(),
-            initial_carry=state.actor_carry,
-            mutable=["intermediates"],
+    ) -> tuple[PPOState, Array, Array, None]:
+        actor_carry, probs = self._apply(
+            self.actor_network, state.actor_params, state.actor_carry, state.timestep
         )
-
         action = (
             jnp.argmax(probs.logits, axis=-1)
             if isinstance(self.env.action_space(self.env_params), Discrete)
             else probs.mode()
         )
         log_prob = probs.log_prob(action)
-
-        action = remove_time_axis(action)
-        log_prob = remove_time_axis(log_prob)
-
-        state = state.replace(
-            actor_carry=actor_carry,
-        )
-        return state, action, log_prob, None, intermediates
+        return state.replace(actor_carry=actor_carry), action, log_prob, None
 
     def _stochastic_action(
         self, key: Key, state: PPOState
-    ) -> tuple[PPOState, Array, Array, Array, dict]:
-        action_key, actor_torso_key, critic_torso_key = jax.random.split(key, 3)
-
-        ts = state.timestep.to_sequence()
-        (actor_carry, (probs, _)), intermediates = self.actor_network.apply(
-            state.actor_params,
-            *ts,
-            initial_carry=state.actor_carry,
-            rngs={"torso": actor_torso_key},
-            mutable=["intermediates"],
+    ) -> tuple[PPOState, Array, Array, Array]:
+        actor_carry, probs = self._apply(
+            self.actor_network, state.actor_params, state.actor_carry, state.timestep
         )
-        action, log_prob = probs.sample_and_log_prob(seed=action_key)
+        action, log_prob = probs.sample_and_log_prob(seed=key)
 
-        critic_carry, (value, _) = self.critic_network.apply(
-            state.critic_params,
-            *ts,
-            initial_carry=state.critic_carry,
-            rngs={"torso": critic_torso_key},
+        critic_carry, value = self._apply(
+            self.critic_network, state.critic_params, state.critic_carry, state.timestep
         )
+        value = jnp.squeeze(value, axis=-1)
 
-        action = remove_time_axis(action)
-        log_prob = remove_time_axis(log_prob)
-
-        value = remove_time_axis(value)
-        value = remove_feature_axis(value)
-
-        state = state.replace(
-            actor_carry=actor_carry,
-            critic_carry=critic_carry,
+        return (
+            state.replace(actor_carry=actor_carry, critic_carry=critic_carry),
+            action,
+            log_prob,
+            value,
         )
-        return state, action, log_prob, value, intermediates
 
     def _generalized_advantage_estimation(self, carry: tuple, transition: Transition):
         advantage, next_value = carry
@@ -166,40 +149,19 @@ class PPO:
         action_key, step_key = jax.random.split(key)
         actor_carry = state.actor_carry
         critic_carry = state.critic_carry
-        state, action, log_prob, value, intermediates = policy(action_key, state)
+        state, action, log_prob, value = policy(action_key, state)
 
-        num_envs, *_ = state.timestep.obs.shape
-        step_key = jax.random.split(step_key, num_envs)
+        step_keys = jax.random.split(step_key, self.cfg.num_envs)
         next_obs, env_state, reward, done, info = jax.vmap(
             self.env.step, in_axes=(0, 0, 0, None)
-        )(step_key, state.env_state, action, self.env_params)
-
-        intermediates = jax.tree.map(
-            lambda x: jnp.mean(jnp.stack(x)),
-            intermediates.get("intermediates", {}),
-            is_leaf=lambda x: isinstance(x, tuple),
-        )
-
-        broadcast_dims = tuple(
-            range(state.timestep.done.ndim, state.timestep.action.ndim)
-        )
-        first = Timestep(
-            obs=state.timestep.obs,
-            action=state.timestep.action,
-            reward=state.timestep.reward,
-            done=state.timestep.done,
-        )
-        second = Timestep(
-            obs=None,
-            action=action,
-            reward=reward,
-            done=done,
-        )
-        lox.log({"info": info, "intermediates": intermediates})
+        )(step_keys, state.env_state, action, self.env_params)
+        reward = jnp.asarray(reward, dtype=jnp.float32)
+        done = jnp.asarray(done, dtype=jnp.bool_)
+        del info
 
         transition = Transition(
-            first=first,
-            second=second,
+            first=state.timestep,
+            second=Timestep(obs=next_obs, action=action, reward=reward, done=done),
             aux={
                 "log_prob": log_prob,
                 "value": value,
@@ -213,13 +175,9 @@ class PPO:
             timestep=Timestep(
                 obs=next_obs,
                 action=jnp.where(
-                    jnp.expand_dims(done, axis=broadcast_dims),
-                    jnp.zeros_like(action),
-                    action,
+                    broadcast_done(done, action), jnp.zeros_like(action), action
                 ),
-                reward=jnp.where(
-                    done, 0, jnp.asarray(reward, dtype=jnp.float32)
-                ),
+                reward=jnp.where(done, jnp.zeros_like(reward), reward),
                 done=done,
             ),
             env_state=env_state,
@@ -232,22 +190,14 @@ class PPO:
         state: PPOState,
         transitions: Transition,
     ) -> tuple[PPOState, Array, tuple[Array, Array, Array]]:
-        torso_key, dropout_key = jax.random.split(key)
-
-        initial_actor_carry = jax.tree.map(
-            lambda x: x[:, 0], transitions.aux["actor_carry"]
-        )
-
         advantages = transitions.aux["advantages"]
         if self.cfg.normalize_advantage:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         def actor_loss_fn(params: PyTree):
-            _, (probs, _) = self.actor_network.apply(
-                params,
-                *transitions.first,
-                initial_carry=initial_actor_carry,
-                rngs={"torso": torso_key, "dropout": dropout_key},
+            _, probs = self._apply(
+                self.actor_network, params, transitions.aux["actor_carry"],
+                transitions.first,
             )
             log_probs = probs.log_prob(transitions.second.action)
             entropy = probs.entropy().mean()
@@ -275,11 +225,7 @@ class PPO:
         (actor_loss, aux), actor_grads = jax.value_and_grad(
             actor_loss_fn, has_aux=True
         )(state.actor_params)
-        lox.log(
-            {
-                "actor/gradient_norm": optax.global_norm(actor_grads),
-            }
-        )
+        lox.log({"actor/gradient_norm": optax.global_norm(actor_grads)})
         actor_updates, actor_optimizer_state = self.actor_optimizer.update(
             actor_grads, state.actor_optimizer_state, state.actor_params
         )
@@ -297,39 +243,25 @@ class PPO:
         state: PPOState,
         transitions: Transition,
     ) -> tuple[PPOState, Array]:
-        torso_key, dropout_key = jax.random.split(key)
-
-        initial_critic_carry = jax.tree.map(
-            lambda x: x[:, 0], transitions.aux["critic_carry"]
-        )
-
         returns = transitions.aux["returns"]
 
         def critic_loss_fn(params: PyTree):
-            _, (values, aux) = self.critic_network.apply(
-                params,
-                *transitions.first,
-                initial_carry=initial_critic_carry,
-                rngs={"torso": torso_key, "dropout": dropout_key},
+            _, values = self._apply(
+                self.critic_network, params, transitions.aux["critic_carry"],
+                transitions.first,
             )
-            values = remove_feature_axis(values)
+            values = jnp.squeeze(values, axis=-1)
 
-            critic_loss = self.critic_network.head.loss(
-                values, aux, returns, transitions=transitions
-            )
+            critic_loss = jnp.square(values - returns)
             if self.cfg.clip_value_loss:
                 clipped_value = transitions.aux["value"] + jnp.clip(
-                    (values - transitions.aux["value"]),
+                    values - transitions.aux["value"],
                     -self.cfg.clip_coefficient,
                     self.cfg.clip_coefficient,
                 )
-                clipped_critic_loss = self.critic_network.head.loss(
-                    clipped_value, aux, returns, transitions=transitions
-                )
+                clipped_critic_loss = jnp.square(clipped_value - returns)
                 critic_loss = jnp.maximum(critic_loss, clipped_critic_loss)
-            critic_loss = critic_loss.mean()
-
-            return critic_loss, values
+            return critic_loss.mean(), values
 
         (critic_loss, values), critic_grads = jax.value_and_grad(
             critic_loss_fn, has_aux=True
@@ -369,9 +301,7 @@ class PPO:
 
         permutation_key, minibatch_key = jax.random.split(key)
 
-        flat = jax.tree.map(
-            lambda x: x.reshape(-1, 1, *x.shape[2:]), transitions
-        )
+        flat = jax.tree.map(lambda x: x.reshape(-1, *x.shape[2:]), transitions)
         num_permutations = self.cfg.num_envs * self.cfg.num_steps
         permutation = jax.random.permutation(permutation_key, num_permutations)
         minibatches = jax.tree.map(
@@ -410,13 +340,10 @@ class PPO:
             step_keys,
         )
 
-        _, (value, _) = self.critic_network.apply(
-            state.critic_params,
-            *state.timestep.to_sequence(),
-            initial_carry=state.critic_carry,
+        _, value = self._apply(
+            self.critic_network, state.critic_params, state.critic_carry, state.timestep
         )
-        value = remove_time_axis(value)
-        value = remove_feature_axis(value)
+        value = jnp.squeeze(value, axis=-1)
 
         _, advantages = jax.lax.scan(
             self._generalized_advantage_estimation,
@@ -455,49 +382,40 @@ class PPO:
         return state.replace(update_step=state.update_step + 1), None
 
     def init(self, key: Key) -> PPOState:
-        (
-            env_key,
-            actor_key,
-            actor_torso_key,
-            actor_dropout_key,
-            critic_key,
-            critic_torso_key,
-            critic_dropout_key,
-        ) = jax.random.split(key, 7)
+        env_key, actor_key, critic_key, actor_carry_key, critic_carry_key = (
+            jax.random.split(key, 5)
+        )
 
         env_keys = jax.random.split(env_key, self.cfg.num_envs)
         obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
             env_keys, self.env_params
         )
+        action_space = self.env.action_space(self.env_params)
         action = jnp.zeros(
-            (self.cfg.num_envs, *self.env.action_space(self.env_params).shape),
-            dtype=self.env.action_space(self.env_params).dtype,
+            (self.cfg.num_envs, *action_space.shape),
+            dtype=canonicalize_dtype(action_space.dtype),
         )
         reward = jnp.zeros((self.cfg.num_envs,), dtype=jnp.float32)
         done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
-        timestep = Timestep(
-            obs=obs, action=action, reward=reward, done=done
-        ).to_sequence()
-        actor_carry = self.actor_network.initialize_carry((self.cfg.num_envs, None))
-        critic_carry = self.critic_network.initialize_carry((self.cfg.num_envs, None))
+        timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
+        single_actor_carry = self.actor_network.initialize_carry(actor_carry_key)
+        single_critic_carry = self.critic_network.initialize_carry(critic_carry_key)
+        actor_carry = jax.tree.map(
+            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
+            single_actor_carry,
+        )
+        critic_carry = jax.tree.map(
+            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
+            single_critic_carry,
+        )
+
+        single_timestep = jax.tree.map(lambda x: x[0], timestep)
         actor_params = self.actor_network.init(
-            {
-                "params": actor_key,
-                "torso": actor_torso_key,
-                "dropout": actor_dropout_key,
-            },
-            *timestep,
-            initial_carry=actor_carry,
+            actor_key, single_actor_carry, *single_timestep
         )
         critic_params = self.critic_network.init(
-            {
-                "params": critic_key,
-                "torso": critic_torso_key,
-                "dropout": critic_dropout_key,
-            },
-            *timestep,
-            initial_carry=critic_carry,
+            critic_key, single_critic_carry, *single_timestep
         )
 
         actor_optimizer_state = self.actor_optimizer.init(actor_params)
@@ -506,7 +424,7 @@ class PPO:
         return PPOState(
             step=0,
             update_step=0,
-            timestep=timestep.from_sequence(),
+            timestep=timestep,
             actor_carry=actor_carry,
             critic_carry=critic_carry,
             env_state=env_state,
@@ -538,28 +456,34 @@ class PPO:
         num_steps: int,
         deterministic: bool = True,
     ) -> PPOState:
-        reset_key, eval_key = jax.random.split(key)
-        reset_key = jax.random.split(reset_key, self.cfg.num_envs)
-        obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
-            reset_key, self.env_params
+        reset_key, actor_carry_key, critic_carry_key, eval_key = jax.random.split(
+            key, 4
         )
+        reset_keys = jax.random.split(reset_key, self.cfg.num_envs)
+        obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
+            reset_keys, self.env_params
+        )
+        action_space = self.env.action_space(self.env_params)
         action = jnp.zeros(
-            (self.cfg.num_envs, *self.env.action_space(self.env_params).shape),
-            dtype=self.env.action_space(self.env_params).dtype,
+            (self.cfg.num_envs, *action_space.shape),
+            dtype=canonicalize_dtype(action_space.dtype),
         )
         reward = jnp.zeros((self.cfg.num_envs,), dtype=jnp.float32)
         done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
-        initial_actor_carry = self.actor_network.initialize_carry(
-            (self.cfg.num_envs, None)
-        )
-        initial_critic_carry = self.critic_network.initialize_carry(
-            (self.cfg.num_envs, None)
-        )
+
+        single_actor_carry = self.actor_network.initialize_carry(actor_carry_key)
+        single_critic_carry = self.critic_network.initialize_carry(critic_carry_key)
         state = state.replace(
             timestep=timestep,
-            actor_carry=initial_actor_carry,
-            critic_carry=initial_critic_carry,
+            actor_carry=jax.tree.map(
+                lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
+                single_actor_carry,
+            ),
+            critic_carry=jax.tree.map(
+                lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
+                single_critic_carry,
+            ),
             env_state=env_state,
         )
 

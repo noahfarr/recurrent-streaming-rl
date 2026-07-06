@@ -1,8 +1,10 @@
 from omegaconf import open_dict
 
-from src.algorithms.ppo import ppo_brax, ppo_popjym
-from src.algorithms.qrc import qrc_bsuite, qrc_popjym
-from src.algorithms.stream_ac import (
+from src.recipes import (
+    ppo_brax,
+    ppo_popjym,
+    qrc_bsuite,
+    qrc_popjym,
     stream_ac_brax,
     stream_ac_bsuite,
     stream_ac_popjym,

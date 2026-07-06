@@ -1,8 +1,0 @@
-namespace: rsrl
-suite: bsuite
-env_id: KMemoryChain-v0
-kwargs:
-  memory_length: 5
-  horizons: 8
-env_params:
-  max_steps_in_episode: ${eval:'${..kwargs.memory_length} * ${..kwargs.horizons}'}

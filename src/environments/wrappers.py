@@ -136,6 +136,22 @@ class NormalizeVecReward(GymnaxWrapper):
         return obs, state, reward / jnp.sqrt(state.var + 1e-8), done, info
 
 
+class ClipActionWrapper(GymnaxWrapper):
+    """Clips actions before stepping, defaulting to the action-space bounds."""
+
+    def __init__(self, env, low=None, high=None):
+        super().__init__(env)
+        self.low = low
+        self.high = high
+
+    def step(self, key, state, action, params=None):
+        action_space = self._env.action_space(params)
+        low = action_space.low if self.low is None else self.low
+        high = action_space.high if self.high is None else self.high
+        action = jnp.clip(action, low, high)
+        return self._env.step(key, state, action, params)
+
+
 class DtypeWrapper(GymnaxWrapper):
     """Ensures environment outputs have standard dtypes."""
     def step(

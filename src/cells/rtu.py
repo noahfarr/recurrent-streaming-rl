@@ -9,23 +9,11 @@ from flax import struct
 from flax.typing import Dtype
 from jax.nn.initializers import lecun_normal
 
-from memorax.utils.typing import Array, Carry
+from flax.linen import RNNCellBase
 
-from memorax.networks.sequence_models.rnn import RNNCellBase
+from src.utils.typing import Array
 
-
-def _initialize_nu_log(key, shape, r_min=0.0, r_max=1.0):
-    u = jax.random.uniform(key, shape=shape)
-    return jnp.log(-0.5 * jnp.log(u * (r_max**2 - r_min**2) + r_min**2))
-
-
-def _initialize_theta_log(key, shape, max_phase=6.28):
-    u = jax.random.uniform(key, shape=shape)
-    return jnp.log(max_phase * u)
-
-
-def _identity(x):
-    return x
+from .rnn import RNN
 
 
 @struct.dataclass
@@ -39,7 +27,9 @@ class RTUConfig:
     dtype: Dtype | None = None
     param_dtype: Dtype = jnp.float32
     activation_fn: Callable = struct.field(pytree_node=False, default=jnp.tanh)
-    output_activation_fn: Callable = struct.field(pytree_node=False, default=_identity)
+    output_activation_fn: Callable = struct.field(
+        pytree_node=False, default=lambda x: x
+    )
 
 
 @struct.dataclass
@@ -49,168 +39,143 @@ class RTUCarry:
 
 
 class RTUCell(RNNCellBase):
-
     config: RTUConfig
+    wrapper = RNN
 
     @property
     def num_feature_axes(self) -> int:
         return 1
 
+    @staticmethod
+    def _init_nu(key, shape, r_min=0.0, r_max=1.0):
+        u = jax.random.uniform(key, shape=shape)
+        return jnp.log(-0.5 * jnp.log(u * (r_max**2 - r_min**2) + r_min**2))
+
+    @staticmethod
+    def _init_theta(key, shape, max_phase=6.28):
+        u = jax.random.uniform(key, shape=shape)
+        return jnp.log(max_phase * u)
+
     def setup(self):
         self.nu_log = self.param(
             "nu_log",
-            partial(_initialize_nu_log, r_min=self.config.r_min, r_max=self.config.r_max),
+            partial(self._init_nu, r_min=self.config.r_min, r_max=self.config.r_max),
             (self.config.hidden_dim,),
         )
         self.theta_log = self.param(
             "theta_log",
-            partial(_initialize_theta_log, max_phase=self.config.max_phase),
+            partial(self._init_theta, max_phase=self.config.max_phase),
             (self.config.hidden_dim,),
         )
         self.B_real = self.param(
-            "B_real",
-            lecun_normal(),
-            (self.config.hidden_dim, self.config.features),
+            "B_real", lecun_normal(), (self.config.hidden_dim, self.config.features)
         )
         self.B_imag = self.param(
-            "B_imag",
-            lecun_normal(),
-            (self.config.hidden_dim, self.config.features),
+            "B_imag", lecun_normal(), (self.config.hidden_dim, self.config.features)
         )
 
-    def _g_phi_norm(self) -> tuple[Array, Array, Array, Array]:
-        r = jnp.exp(-jnp.exp(self.nu_log))
-        theta = jnp.exp(self.theta_log)
-        g = r * jnp.cos(theta)
-        phi = r * jnp.sin(theta)
+    def _unit_step(self, h, nu, th, br, bi, x):
+        real, imag = h
+        r = jnp.exp(-jnp.exp(nu))
+        theta = jnp.exp(th)
+        g, phi = r * jnp.cos(theta), r * jnp.sin(theta)
         norm = jnp.sqrt(1 - r**2) + self.config.eps
-        return g, phi, norm, r
+        pre = jnp.stack(
+            [
+                g * real - phi * imag + norm * (x @ br),
+                g * imag + phi * real + norm * (x @ bi),
+            ]
+        )
+        return self.config.activation_fn(pre)
 
     @nn.compact
     def __call__(self, carry: RTUCarry, inputs: Array) -> tuple[RTUCarry, Array]:
-        g, phi, norm, r = self._g_phi_norm()
-        theta = jnp.exp(self.theta_log)
+        h = jnp.stack([carry.real, carry.imaginary], axis=-1)
+        new_h = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, None))(
+            h, self.nu_log, self.theta_log, self.B_real, self.B_imag, inputs
+        )
+        new_carry = RTUCarry(real=new_h[:, 0], imaginary=new_h[:, 1])
+        return new_carry, self.output(new_carry)
 
-        lox.log(
-            {
-                "rtu/r": jnp.mean(r),
-                "rtu/r_max": jnp.max(r),
-                "rtu/r_min": jnp.min(r),
-                "rtu/theta": jnp.mean(theta),
-            },
-            tags=["training"],
+    def output(self, carry):
+        return self.config.output_activation_fn(
+            jnp.concatenate([carry.real, carry.imaginary])
         )
 
-        pre_real = g * carry.real - phi * carry.imaginary + norm * (inputs @ self.B_real.T)
-        pre_imaginary = g * carry.imaginary + phi * carry.real + norm * (inputs @ self.B_imag.T)
-        f = self.config.activation_fn
-        new_carry = RTUCarry(real=f(pre_real), imaginary=f(pre_imaginary))
-        output = self.config.output_activation_fn(
-            jnp.concatenate([new_carry.real, new_carry.imaginary], axis=-1)
+    def local_jacobian(self, carry, inputs, **kwargs):
+        carry = jnp.stack([carry.real, carry.imaginary], axis=-1)
+
+        new_carry = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, None))(
+            carry,
+            *jax.lax.stop_gradient(
+                (self.nu_log, self.theta_log, self.B_real, self.B_imag)
+            ),
+            inputs,
         )
-        return new_carry, output
+        jacobians = jax.vmap(
+            jax.jacfwd(self._unit_step, argnums=(0, 1, 2, 3, 4)),
+            in_axes=(0, 0, 0, 0, 0, None),
+        )(carry, self.nu_log, self.theta_log, self.B_real, self.B_imag, inputs)
+        (
+            state_jacobian,
+            nu_jacobian,
+            theta_jacobian,
+            b_real_jacobian,
+            b_imag_jacobian,
+        ) = jacobians
+
+        parameter_jacobian = {
+            "nu_log": nu_jacobian,
+            "theta_log": theta_jacobian,
+            "B_real": b_real_jacobian,
+            "B_imag": b_imag_jacobian,
+        }
+        parameter_jacobian = jax.tree.map(
+            lambda x: jnp.moveaxis(x, 1, 0), parameter_jacobian
+        )
+
+        carry = RTUCarry(real=new_carry[:, 0], imaginary=new_carry[:, 1])
+        return carry, state_jacobian, parameter_jacobian
+
+    def inject_influence(self, carry, influence):
+
+        def fn(mdl, r, i, influence):
+            return r, i
+
+        def forward_fn(mdl, real, imag, influence):
+            return (real, imag), influence
+
+        def backward_fn(influence, tangents):
+            g_real, g_imag = tangents
+
+            def inject(s):
+                real, imag = s
+                broadcast_dims = [1] * (real.ndim - 1)
+                return (
+                    g_real.reshape(-1, *broadcast_dims) * real
+                    + g_imag.reshape(-1, *broadcast_dims) * imag
+                )
+
+            g_params = jax.tree.map(inject, influence)
+            return {"params": g_params}, g_real, g_imag, None
+
+        real, imag = nn.custom_vjp(
+            fn=fn,
+            forward_fn=forward_fn,
+            backward_fn=backward_fn,
+        )(self, carry.real, carry.imaginary, influence)
+        return RTUCarry(real=real, imaginary=imag)
 
     @nn.nowrap
-    def initialize_carry(self, key: jax.Array, input_shape: tuple[int, ...]) -> RTUCarry:
-        *batch_dims, _ = input_shape
-        zeros = jnp.zeros((*batch_dims, self.config.hidden_dim))
+    def initialize_carry(self, key, input_shape):
+        zeros = jnp.zeros(self.config.hidden_dim)
         return RTUCarry(real=zeros, imaginary=zeros)
 
-    def compute_phantom(self, sensitivity: dict[str, Array]) -> RTUCarry:
-        params = self.variables["params"]
-        real_phantom = 0
-        imaginary_phantom = 0
-        for name, S in sensitivity.items():
-            param = params[name]
-            diff = param - jax.lax.stop_gradient(param)
-            contribution = jnp.sum(S * diff, axis=tuple(range(3, S.ndim)))
-            real_phantom = real_phantom + contribution[:, 0]
-            imaginary_phantom = imaginary_phantom + contribution[:, 1]
-        return RTUCarry(real=real_phantom, imaginary=imaginary_phantom)
-
-    def inject_phantom(self, carry: RTUCarry, phantom: RTUCarry) -> RTUCarry:
-        return RTUCarry(
-            real=jax.lax.stop_gradient(carry.real) + phantom.real,
-            imaginary=jax.lax.stop_gradient(carry.imaginary) + phantom.imaginary,
-        )
-
-    def local_jacobian(
-        self,
-        carry: RTUCarry,
-        inputs: Array,
-        sensitivity: dict[str, Array],
-        **kwargs,
-    ) -> tuple[RTUCarry, Array, dict[str, Array]]:
-        g, phi, norm, r = self._g_phi_norm()
-        theta = jnp.exp(self.theta_log)
-
-        lox.log(
-            {
-                "rtu/r": jnp.mean(r),
-                "rtu/r_max": jnp.max(r),
-                "rtu/r_min": jnp.min(r),
-                "rtu/theta": jnp.mean(theta),
-            },
-            tags=["training"],
-        )
-
-        f = self.config.activation_fn
-
-        u_real = inputs @ self.B_real.T
-        u_imaginary = inputs @ self.B_imag.T
-        pre_real = g * carry.real - phi * carry.imaginary + norm * u_real
-        pre_imaginary = g * carry.imaginary + phi * carry.real + norm * u_imaginary
-        d_real = jax.grad(lambda x: f(x).sum())(pre_real)
-        d_imaginary = jax.grad(lambda x: f(x).sum())(pre_imaginary)
-        new_carry = RTUCarry(real=f(pre_real), imaginary=f(pre_imaginary))
-        output = self.config.output_activation_fn(
-            jnp.concatenate([new_carry.real, new_carry.imaginary], axis=-1)
-        )
-
-        A = jnp.stack([jnp.stack([g, -phi]), jnp.stack([phi, g])])
-        d = jnp.stack([d_real, d_imaginary], axis=1)
-
-        exp_nu = jnp.exp(self.nu_log)
-        dg_dnu = -exp_nu * g
-        dphi_dnu = -exp_nu * phi
-        dnorm_dnu = exp_nu * r**2 / (jnp.sqrt(1 - r**2) + 1e-12)
-
-        dg_dtheta = -phi * theta
-        dphi_dtheta = g * theta
-
-        Bu = jnp.einsum('h,bf->bhf', norm, inputs)
-        zeros_bhf = jnp.zeros_like(Bu)
-        jacobians = {
-            "nu_log": jnp.stack([
-                dg_dnu * carry.real - dphi_dnu * carry.imaginary + dnorm_dnu * u_real,
-                dg_dnu * carry.imaginary + dphi_dnu * carry.real + dnorm_dnu * u_imaginary,
-            ], axis=1),
-            "theta_log": jnp.stack([
-                dg_dtheta * carry.real - dphi_dtheta * carry.imaginary,
-                dg_dtheta * carry.imaginary + dphi_dtheta * carry.real,
-            ], axis=1),
-            "B_real": jnp.stack([Bu, zeros_bhf], axis=1),
-            "B_imag": jnp.stack([zeros_bhf, Bu], axis=1),
-        }
-
-        next_sensitivity = {}
-        for name in sensitivity:
-            S = sensitivity[name]
-            J = jacobians[name]
-            rotated = jnp.einsum('ijh,bjh...->bih...', A, S)
-            next_sensitivity[name] = jnp.einsum('bih,bih...->bih...', d, rotated + J)
-
-        return new_carry, output, next_sensitivity
-
-    def initialize_sensitivity(
-        self, key: jax.Array, input_shape: tuple[int, ...]
-    ) -> dict[str, Array] | None:
-        *batch_dims, _ = input_shape
-        H = self.config.hidden_dim
-        F = self.config.features
+    def initialize_influence(self, key, input_shape):
+        H, F = self.config.hidden_dim, self.config.features
         return {
-            "nu_log": jnp.zeros((*batch_dims, 2, H)),
-            "theta_log": jnp.zeros((*batch_dims, 2, H)),
-            "B_real": jnp.zeros((*batch_dims, 2, H, F)),
-            "B_imag": jnp.zeros((*batch_dims, 2, H, F)),
+            "nu_log": jnp.zeros((2, H)),
+            "theta_log": jnp.zeros((2, H)),
+            "B_real": jnp.zeros((2, H, F)),
+            "B_imag": jnp.zeros((2, H, F)),
         }

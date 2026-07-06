@@ -1,4 +1,1 @@
-_target_: memorax.networks.SequenceModelWrapper
 name: ffn
-network:
-  _target_: memorax.networks.Identity

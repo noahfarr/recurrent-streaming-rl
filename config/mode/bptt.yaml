@@ -1,4 +1,6 @@
 # @package _global_
 mode:
   name: bptt
-torso: ${cell}
+  wrapper:
+    _target_: src.cells.RNN
+    _partial_: true
