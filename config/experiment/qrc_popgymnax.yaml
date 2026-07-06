@@ -22,4 +22,4 @@ hydra:
   sweeper:
     params:
       cell: rtu
-      environment: popjym/easy/count_recall,popjym/easy/repeat_first,popjym/easy/concentration,popjym/easy/autoencode,popjym/easy/higher_lower
+      environment: popgymnax/easy/count_recall,popgymnax/easy/repeat_first,popgymnax/easy/concentration,popgymnax/easy/autoencode,popgymnax/easy/higher_lower

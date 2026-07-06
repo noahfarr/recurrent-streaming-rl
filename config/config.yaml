@@ -10,7 +10,7 @@ loggers: {}
 defaults:
   - _self_
   - algorithm: ppo
-  - environment: popjym/easy/repeat_first
+  - environment: popgymnax/easy/repeat_first
   - cell: ffn
   - mode: bptt
   - logger: default

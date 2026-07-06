@@ -1,5 +1,5 @@
-namespace: popjym
-suite: popjym
+namespace: popgymnax
+suite: popgymnax
 env_id: HigherLower
 kwargs:
   difficulty: Easy

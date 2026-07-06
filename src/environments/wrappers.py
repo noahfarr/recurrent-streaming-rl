@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from flax import struct
 from gymnax.environments import environment
 from gymnax.wrappers.purerl import GymnaxWrapper
-from memorax.utils.typing import Array, EnvParams, Key
+from streax.utils.typing import Array, EnvParams, Key
 
 
 @struct.dataclass

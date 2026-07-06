@@ -5,11 +5,11 @@ import jax
 import jax.numpy as jnp
 import lox
 from hydra.utils import instantiate
-from memorax.loggers import MultiLogger
+from streax.loggers import MultiLogger
 from omegaconf import OmegaConf
 
 from src import algorithm
-from src.utils import profile, strip
+from src.utils import profile
 
 
 @hydra.main(version_base=None, config_path="./config", config_name="config")
@@ -35,7 +35,7 @@ def main(cfg):
     train = profile(
         jax.jit(
             jax.vmap(
-                lox.spool(strip(agent.train)),
+                lox.spool(agent.train),
                 in_axes=(0, 0, None),
             ),
             static_argnums=(2,),
@@ -76,7 +76,7 @@ def main(cfg):
         )
         data = extract(logs, "training")
         data["training/SPS"] = SPS
-        logger.log(data, step=state.step.mean(dtype=int).item())
+        logger.log(data, steps=state.step.mean(dtype=int).item())
 
     logger.finish()
 

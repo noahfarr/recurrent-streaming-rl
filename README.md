@@ -72,18 +72,18 @@ Predefined sweeps live in `config/experiment/` and are selected with `experiment
 | Experiment | Paper section |
 | --- | --- |
 | `qrc_memory_chain` | 4.1 — MemoryChain |
-| `qrc_popjym`, `stream_ac_popjym`, `ppo_popjym` | 4.2 — POPGym |
+| `qrc_popgymnax`, `stream_ac_popgymnax`, `ppo_popgymnax` | 4.2 — POPGym |
 | `stream_ac_brax`, `ppo_brax` | 4.3 — Masked MuJoCo |
 
 ```bash
-uv run main.py experiment=qrc_popjym
+uv run main.py experiment=qrc_popgymnax
 uv run main.py experiment=stream_ac_brax
 ```
 
 Each experiment file pins algorithm/mode/cell/logger and declares a Hydra
 multirun sweep over seeds, environments, and cell variants. Benchmarks:
 MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
-(`popjym/easy/*`), and masked MuJoCo (`brax/*`, mask positions with
+(`popgymnax/easy/*`), and masked MuJoCo (`brax/*`, mask positions with
 `environment.kwargs.mode=P` or velocities with `V`).
 
 ## Repository layout

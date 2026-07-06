@@ -12,19 +12,15 @@ resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'emscripten'",
     "python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'win32'",
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
-    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten'",
     "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'linux' and sys_platform != 'win32'",
-]
-required-markers = [
-    "platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 
 [manifest]
-overrides = [{ name = "lox", git = "https://github.com/huterguier/lox?rev=dev" }]
+overrides = [{ name = "lox", git = "https://github.com/huterguier/lox?branch=dev" }]
 
 [[package]]
 name = "absl-py"
@@ -425,24 +421,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ec/91/14397890dde30adc4bee6462158933806207bc5dd10d7b4d09d5c33845cf/farama_notifications-0.0.6.tar.gz", hash = "sha256:b19acac4bb41d76e59e03394b5dd165f4761c86fa327f56307a35cbee3b60158", size = 2517, upload-time = "2026-04-24T08:43:57.603Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/f0/21f81892e4ed10f4ec3ef2e7cf8635fb76e7c0907c55d0da66be50094760/farama_notifications-0.0.6-py3-none-any.whl", hash = "sha256:f84839188efa1ce5bb361c2a84881b2dc2c0d0d7fb661ff00421820170930935", size = 2897, upload-time = "2026-04-24T08:43:56.785Z" },
-]
-
-[[package]]
-name = "flashbax"
-version = "0.1.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "chex" },
-    { name = "flax" },
-    { name = "jax" },
-    { name = "jaxlib" },
-    { name = "numpy" },
-    { name = "tensorstore" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6d/a2/fddfe1f119b964b45d1e9ac557d3e921f393e4369417d0a98803163c705b/flashbax-0.1.3.tar.gz", hash = "sha256:3792972973169d455188451dd3f93a0ab37004bb122bb256a323927daaca9a3e", size = 56444, upload-time = "2025-03-27T09:50:45.513Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/80/f2/3ec1ebf403bd1593c44a0e42dbd0935a03bffb090259a3e88699d210a9f0/flashbax-0.1.3-py3-none-any.whl", hash = "sha256:798b0056dd0f525269ad9689a402dd0a515db7cb6976c761aa95004ff37e9697", size = 82386, upload-time = "2025-03-27T09:50:44.004Z" },
 ]
 
 [[package]]
@@ -908,8 +886,8 @@ wheels = [
 
 [[package]]
 name = "lox"
-version = "0.1.1"
-source = { git = "https://github.com/huterguier/lox?rev=dev#ead9a36167024f89a4d0ada0a8719b4b8ad2fb5a" }
+version = "0.1.2"
+source = { git = "https://github.com/huterguier/lox?branch=dev#1770534b4bdfb925c001e99a567044fee29a01d9" }
 dependencies = [
     { name = "jax" },
     { name = "rich" },
@@ -1051,31 +1029,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
-]
-
-[[package]]
-name = "memorax"
-version = "1.0.1"
-source = { git = "https://github.com/noahfarr/memorax.git#94dd21dba5ab6eee4a0281066a5f49643d052174" }
-dependencies = [
-    { name = "distrax" },
-    { name = "flashbax" },
-    { name = "flax" },
-    { name = "gymnax" },
-    { name = "hydra-core" },
-    { name = "jax", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "jax", extra = ["cuda12"], marker = "sys_platform == 'linux'" },
-    { name = "lox" },
-    { name = "tensorboardx" },
-    { name = "wandb" },
-]
-
-[package.optional-dependencies]
-brax = [
-    { name = "brax" },
-]
-popjym = [
-    { name = "popjym" },
 ]
 
 [[package]]
@@ -1629,10 +1582,11 @@ wheels = [
 ]
 
 [[package]]
-name = "popjym"
+name = "popgymnax"
 version = "0.0.1"
-source = { git = "https://github.com/EdanToledo/popjym.git#2cd2ee4114579e25577c34a90695cebfc80f714d" }
+source = { git = "https://github.com/noahfarr/popgymnax.git#d5ff6c8f8d38f4cc5d17cda29b12696d52d66ee5" }
 dependencies = [
+    { name = "chex" },
     { name = "flax" },
     { name = "gymnax" },
     { name = "jax" },
@@ -1887,8 +1841,8 @@ source = { virtual = "." }
 dependencies = [
     { name = "distrax" },
     { name = "hydra-core" },
-    { name = "memorax", extra = ["brax", "popjym"] },
     { name = "omegaconf" },
+    { name = "popgymnax" },
     { name = "streax" },
 ]
 
@@ -1896,9 +1850,9 @@ dependencies = [
 requires-dist = [
     { name = "distrax", specifier = ">=0.1.5" },
     { name = "hydra-core", specifier = ">=1.3.2" },
-    { name = "memorax", extras = ["popjym", "brax"], git = "https://github.com/noahfarr/memorax.git" },
     { name = "omegaconf", specifier = ">=2.3.0" },
-    { name = "streax", editable = "../streax" },
+    { name = "popgymnax", git = "https://github.com/noahfarr/popgymnax.git" },
+    { name = "streax", git = "ssh://git@github.com/noahfarr/streax.git" },
 ]
 
 [[package]]
@@ -2091,7 +2045,7 @@ wheels = [
 [[package]]
 name = "streax"
 version = "0.1.0"
-source = { editable = "../streax" }
+source = { git = "ssh://git@github.com/noahfarr/streax.git#4d76c83215ef2cb61a11b78988127b953f024cf3" }
 dependencies = [
     { name = "animax" },
     { name = "brax" },
@@ -2104,34 +2058,6 @@ dependencies = [
     { name = "lox" },
     { name = "rich" },
     { name = "wandb" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "ale-py", extras = ["gymnasium"], marker = "extra == 'ale'" },
-    { name = "animax", git = "ssh://git@github.com/noahfarr/blinx.git" },
-    { name = "brax", specifier = ">=0.10.0" },
-    { name = "craftax", specifier = ">=1.5.0" },
-    { name = "craftax", marker = "extra == 'craftax'" },
-    { name = "distrax", specifier = ">=0.1.5" },
-    { name = "flax", specifier = ">=0.10.2" },
-    { name = "gymnasium", marker = "extra == 'gymnasium'" },
-    { name = "gymnax", specifier = ">=0.0.9" },
-    { name = "jax", marker = "sys_platform == 'darwin'", specifier = ">=0.7.0" },
-    { name = "jax", extras = ["cuda12"], marker = "sys_platform == 'linux'", specifier = ">=0.7.0" },
-    { name = "lox", git = "https://github.com/huterguier/lox?branch=dev" },
-    { name = "matplotlib", marker = "extra == 'ett'" },
-    { name = "pufferlib-core", marker = "extra == 'pufferlib'" },
-    { name = "rich" },
-    { name = "slurmpilot", marker = "extra == 'cluster'", git = "ssh://git@github.com/noahfarr/slurmpilot.git?branch=feat%2Fspignore" },
-    { name = "wandb" },
-]
-provides-extras = ["gymnasium", "ale", "ett", "cluster", "pufferlib", "craftax"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "joblib", specifier = ">=1.5.3" },
-    { name = "tqdm", specifier = ">=4.67.3" },
 ]
 
 [[package]]

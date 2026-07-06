@@ -1,5 +1,5 @@
 # @package loggers.dashboard
-_target_: memorax.loggers.DashboardLogger
+_target_: streax.loggers.DashboardLogger
 title: RSRL
 name: ${algorithm.name}
 total_timesteps: ${total_timesteps}
