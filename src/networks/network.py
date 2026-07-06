@@ -28,7 +28,6 @@ class Network(nn.Module):
 
 
 class ObservationFeatureExtractor(nn.Module):
-    """Adapts an obs-only module to Network's (obs, action, reward, done) call."""
 
     layers: Callable
 
@@ -38,7 +37,6 @@ class ObservationFeatureExtractor(nn.Module):
 
 
 def build_cell(cfg):
-    """Builds the (possibly RTRL/RNN-wrapped) recurrent cell from cfg.cell/cfg.mode."""
     if cfg.cell.name == "ffn":
         return None
     raw_cell = instantiate(cfg.cell)

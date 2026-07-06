@@ -3,21 +3,11 @@ from omegaconf import open_dict
 from src.recipes import (
     ppo_brax,
     ppo_popjym,
-    qrc_bsuite,
-    qrc_popjym,
-    stream_ac_brax,
-    stream_ac_bsuite,
-    stream_ac_popjym,
 )
 
 register = {
     ("ppo", "popjym"): ppo_popjym.make,
     ("ppo", "brax"): ppo_brax.make,
-    ("qrc", "bsuite"): qrc_bsuite.make,
-    ("qrc", "popjym"): qrc_popjym.make,
-    ("stream_ac", "bsuite"): stream_ac_bsuite.make,
-    ("stream_ac", "popjym"): stream_ac_popjym.make,
-    ("stream_ac", "brax"): stream_ac_brax.make,
 }
 
 

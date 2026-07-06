@@ -7,7 +7,7 @@ from streax.environments.wrappers import (
     NormalizeRewardWrapper,
 )
 
-from src.algorithms.optimizers import inject_logger
+from src.utils.optimizers import inject_logger
 from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
