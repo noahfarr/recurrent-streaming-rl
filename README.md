@@ -49,12 +49,6 @@ Algorithm-specific hyperparameters are resolved automatically from
 `algorithm.gamma=0.95`, `num_seeds=10`, `cell.config.features=64`,
 `logger=[wandb]`.
 
-> This branch (`streamlet-port`) reproduces the paper's algorithms on top of
-> [`streamlet`](https://github.com/noahfarr/streamlet) instead of hand-rolled
-> eligibility-trace/optimizer/RTU-RTRL code, and covers §4.1–4.3 only. §4.4
-> (RTRL staleness, KMemoryChain) stays on `main`, which still uses the
-> original implementation.
-
 ## Reproducing the paper
 
 Predefined sweeps live in `config/experiment/` and are selected with `experiment=<name>`:
@@ -107,7 +101,3 @@ If you find this work useful, please cite:
   year    = {2026}
 }
 ```
-
-## License
-
-Released under the MIT License — see [LICENSE](LICENSE).
