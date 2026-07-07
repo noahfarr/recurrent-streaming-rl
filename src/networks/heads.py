@@ -45,9 +45,11 @@ class Gaussian(nn.Module):
     bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
 
     @nn.compact
-    def __call__(self, x: Array, **kwargs) -> distrax.MultivariateNormalDiag:
+    def __call__(self, x: Array, **kwargs) -> distrax.Independent:
         mean = nn.Dense(
             self.action_dim, kernel_init=self.kernel_init, bias_init=self.bias_init
         )(x)
         log_std = self.param("log_std", nn.initializers.zeros, self.action_dim)
-        return distrax.MultivariateNormalDiag(loc=mean, scale_diag=jnp.exp(log_std))
+        return distrax.Independent(
+            distrax.Normal(loc=mean, scale=jnp.exp(log_std)), reinterpreted_batch_ndims=1
+        )
