@@ -71,13 +71,8 @@ def make(cfg):
         ),
     )
 
-    make_optimizer = instantiate(cfg.optimizer)
-    actor_optimizer = make_optimizer(
-        name="actor_optimizer", lr=cfg.actor_lr, kappa=cfg.actor_kappa
-    )
-    critic_optimizer = make_optimizer(
-        name="critic_optimizer", lr=cfg.critic_lr, kappa=cfg.critic_kappa
-    )
+    actor_optimizer = instantiate(cfg.actor_optimizer)
+    critic_optimizer = instantiate(cfg.critic_optimizer)
 
     agent = RecurrentACLambda(
         cfg=instantiate(cfg.algorithm),

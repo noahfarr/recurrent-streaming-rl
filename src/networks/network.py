@@ -1,6 +1,7 @@
 from typing import Callable
 
 import flax.linen as nn
+from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 from omegaconf import open_dict
 
@@ -29,7 +30,7 @@ class Network(nn.Module):
 
 
 def build_cell(cfg, input_size=None):
-    if cfg.cell.name == "ffn":
+    if HydraConfig.get().runtime.choices["cell"] == "ffn":
         return None
     if input_size is not None:
         with open_dict(cfg):

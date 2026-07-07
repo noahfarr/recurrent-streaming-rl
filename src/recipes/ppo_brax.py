@@ -63,14 +63,12 @@ def make(cfg):
         ),
     )
 
-    make_optimizer = instantiate(cfg.optimizer)
-
     return PPO(
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,
         actor_network=actor_network,
         critic_network=critic_network,
-        actor_optimizer=make_optimizer(name="actor_optimizer", lr=cfg.actor_lr),
-        critic_optimizer=make_optimizer(name="critic_optimizer", lr=cfg.critic_lr),
+        actor_optimizer=instantiate(cfg.actor_optimizer),
+        critic_optimizer=instantiate(cfg.critic_optimizer),
     )

@@ -1,7 +1,7 @@
 # @package loggers.wandb
 _target_: streax.loggers.WandbLogger
 project: rsrl
-name: ${algorithm.name}_${environment.namespace}_${environment.env_id}_${seed}_${now:%Y%m%d_%H%M%S}
+name: ${hydra:runtime.choices.algorithm}_${environment.namespace}_${environment.env_id}_${seed}_${now:%Y%m%d_%H%M%S}
 group: ${get_group:}
 mode: online
 num_seeds: ${num_seeds}

@@ -1,8 +1,9 @@
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+import optax
 from hydra.utils import instantiate
-from streax.algorithms import RecurrentACLambda
+from streax.algorithms import RecurrentQRCLambda
 from streax.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
@@ -44,34 +45,38 @@ def make(cfg):
 
     cell = build_cell(cfg, input_size=feature_dim)
 
-    actor_network = Network(
+    q_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.Categorical(
+        head=heads.DiscreteQNetwork(
             action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
         ),
     )
-    critic_network = Network(
+    h_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.VNetwork(kernel_init=sparse(sparsity=0.9)),
+        head=heads.DiscreteQNetwork(
+            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+        ),
     )
 
-    make_optimizer = instantiate(cfg.optimizer)
-    actor_optimizer = make_optimizer(
-        name="actor_optimizer", lr=cfg.actor_lr, kappa=cfg.actor_kappa
-    )
-    critic_optimizer = make_optimizer(
-        name="critic_optimizer", lr=cfg.critic_lr, kappa=cfg.critic_kappa
+    epsilon_schedule = optax.linear_schedule(
+        cfg.epsilon_start,
+        cfg.epsilon_end,
+        int(cfg.total_timesteps * cfg.epsilon_fraction),
     )
 
-    agent = RecurrentACLambda(
+    q_optimizer = instantiate(cfg.q_optimizer)
+    h_optimizer = instantiate(cfg.h_optimizer)
+
+    agent = RecurrentQRCLambda(
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,
-        actor_network=actor_network,
-        critic_network=critic_network,
-        actor_optimizer=actor_optimizer,
-        critic_optimizer=critic_optimizer,
+        q_network=q_network,
+        h_network=h_network,
+        q_optimizer=q_optimizer,
+        h_optimizer=h_optimizer,
+        epsilon_schedule=epsilon_schedule,
     )
     return agent

@@ -83,8 +83,8 @@ uv run main.py experiment=stream_ac_brax
 Each experiment file pins algorithm/mode/cell/logger and declares a Hydra
 multirun sweep over seeds, environments, and cell variants. Benchmarks:
 MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
-(`popgymnax/easy/*`), and masked MuJoCo (`brax/*`, mask positions with
-`environment.kwargs.mode=P` or velocities with `V`).
+(`popgymnax/easy/*`), and masked MuJoCo (`brax/*`, mask velocities with
+`environment.kwargs.mode=P` or positions with `V`).
 
 ## Repository layout
 

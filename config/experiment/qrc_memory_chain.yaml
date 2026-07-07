@@ -1,7 +1,6 @@
 # @package _global_
 defaults:
   - override /algorithm: qrc_lambda
-  - override /optimizer: sgd
   - override /environment: gymnax/bsuite/memory_chain
   - override /logger: [dashboard,wandb]
 

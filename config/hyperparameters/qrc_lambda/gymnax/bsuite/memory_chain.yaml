@@ -3,7 +3,9 @@
 algorithm:
   trace_lambda: 0.95
 
-optimizer:
+q_optimizer:
+  max_grad_norm: null
+h_optimizer:
   max_grad_norm: null
 
 total_timesteps: 500_000

@@ -1,12 +1,25 @@
 # @package _global_
 
+defaults:
+  - /optimizer@q_optimizer: sgd
+  - /optimizer@h_optimizer: sgd
+  - _self_
+
 algorithm:
   _target_: streax.algorithms.RecurrentQRCLambdaConfig
-  name: qrc_lambda
   gamma: 0.99
   trace_lambda: 0.8
   gradient_correction: true
   regularization_coefficient: 1.0
+
+q_optimizer:
+  name: q_optimizer
+  lr: 1e-4
+  max_grad_norm: 1.0
+h_optimizer:
+  name: h_optimizer
+  lr: 1e-5
+  max_grad_norm: 1.0
 
 epsilon_start: 1.0
 epsilon_end: 0.01

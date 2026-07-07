@@ -1,7 +1,6 @@
 # @package _global_
 defaults:
   - override /algorithm: ac_lambda
-  - override /optimizer: obgd
   - override /mode: rtrl
   - override /logger: [wandb]
 

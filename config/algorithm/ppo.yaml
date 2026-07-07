@@ -1,8 +1,12 @@
 # @package _global_
 
+defaults:
+  - /optimizer@actor_optimizer: adam
+  - /optimizer@critic_optimizer: adam
+  - _self_
+
 algorithm:
   _target_: src.algorithms.ppo.ppo.PPOConfig
-  name: ppo
   num_envs: 4
   num_steps: 128
   gae_lambda: 0.95
@@ -13,3 +17,12 @@ algorithm:
   clip_coefficient: 0.2
   clip_value_loss: True
   entropy_coefficient: 0.01
+
+actor_optimizer:
+  name: actor_optimizer
+  lr: 3e-4
+  max_grad_norm: 1.5
+critic_optimizer:
+  name: critic_optimizer
+  lr: 1e-4
+  max_grad_norm: 1.5

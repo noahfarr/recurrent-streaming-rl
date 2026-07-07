@@ -59,8 +59,7 @@ def make(cfg):
         int(cfg.total_timesteps * cfg.epsilon_fraction),
     )
 
-    make_optimizer = instantiate(cfg.optimizer)
-    q_optimizer = make_optimizer(name="q_optimizer", lr=cfg.q_lr, kappa=cfg.q_kappa)
+    q_optimizer = instantiate(cfg.q_optimizer)
 
     agent = RecurrentQLambda(
         cfg=instantiate(cfg.algorithm),

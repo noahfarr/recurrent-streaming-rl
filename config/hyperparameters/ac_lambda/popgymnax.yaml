@@ -4,8 +4,10 @@ algorithm:
   trace_lambda: 0.8
   entropy_coefficient: 0.095
 
-actor_kappa: 3.0
-critic_kappa: 2.0
+actor_optimizer:
+  kappa: 3.0
+critic_optimizer:
+  kappa: 2.0
 
 total_timesteps: 5_000_000
 num_epochs: 25

@@ -1,6 +1,5 @@
 # @package _global_
 mode:
-  name: rtrl
   wrapper:
     _target_: src.cells.RTRL
     _partial_: true

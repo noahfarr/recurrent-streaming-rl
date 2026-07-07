@@ -1,4 +1,6 @@
 import flax.linen as nn
+import jax
+import jax.numpy as jnp
 from hydra.utils import instantiate
 from streax.algorithms import RecurrentACLambda
 from streax.environments.wrappers import (
@@ -9,6 +11,7 @@ from streax.networks import sparse
 
 from src.environments import environment
 from src.networks import build_cell, heads
+from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network
 
 
@@ -16,23 +19,36 @@ def make(cfg):
     env, env_params = environment.make(**cfg.environment)
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
-    feature_extractor = lambda obs, action, reward, done: nn.Sequential(
-        (
-            nn.Dense(features=128, kernel_init=sparse(sparsity=0.9)),
-            nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
-            nn.leaky_relu,
-            nn.Dense(features=128, kernel_init=sparse(sparsity=0.9)),
-            nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
-            nn.leaky_relu,
-        )
-    )(obs)
-    cell = build_cell(cfg)
+
+    num_actions = env.action_space(env_params).n
+    feature_extractor = FeatureExtractor(
+        observation_extractor=nn.Sequential(
+            [
+                nn.Dense(64, kernel_init=sparse(sparsity=0.9)),
+                nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                nn.leaky_relu,
+            ]
+        ),
+        action_extractor=lambda action: jax.nn.one_hot(action, num_classes=num_actions),
+        reward_extractor=lambda reward: reward[None],
+    )
+
+    feature_dim = jax.eval_shape(
+        feature_extractor.init_with_output,
+        jax.random.key(0),
+        jnp.zeros(env.observation_space(env_params).shape),
+        jnp.zeros((), jnp.int32),
+        jnp.zeros(()),
+        jnp.zeros((), bool),
+    )[0].shape[-1]
+
+    cell = build_cell(cfg, input_size=feature_dim)
+
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
         head=heads.Categorical(
-            action_dim=env.action_space(env_params).n,
-            kernel_init=sparse(sparsity=0.9),
+            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
         ),
     )
     critic_network = Network(
@@ -41,13 +57,8 @@ def make(cfg):
         head=heads.VNetwork(kernel_init=sparse(sparsity=0.9)),
     )
 
-    make_optimizer = instantiate(cfg.optimizer)
-    actor_optimizer = make_optimizer(
-        name="actor_optimizer", lr=cfg.actor_lr, kappa=cfg.actor_kappa
-    )
-    critic_optimizer = make_optimizer(
-        name="critic_optimizer", lr=cfg.critic_lr, kappa=cfg.critic_kappa
-    )
+    actor_optimizer = instantiate(cfg.actor_optimizer)
+    critic_optimizer = instantiate(cfg.critic_optimizer)
 
     agent = RecurrentACLambda(
         cfg=instantiate(cfg.algorithm),

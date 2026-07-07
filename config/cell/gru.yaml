@@ -1,3 +1,2 @@
 _target_: flax.linen.GRUCell
-name: gru
 features: 192

@@ -4,10 +4,13 @@ import jax.numpy as jnp
 import numpy as np
 from flax.linen.initializers import constant, orthogonal
 from hydra.utils import instantiate
+from streax.environments.wrappers import (
+    NormalizeObservationWrapper,
+    NormalizeRewardWrapper,
+)
 
 from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
-from src.environments.wrappers import NormalizeVecObservation, NormalizeVecReward
 from src.networks import build_cell, heads
 from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network
@@ -15,8 +18,8 @@ from src.networks.network import Network
 
 def make(cfg):
     env, env_params = environment.make(**cfg.environment)
-    env = NormalizeVecObservation(env)
-    env = NormalizeVecReward(env, cfg.algorithm.gamma)
+    env = NormalizeObservationWrapper(env)
+    env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
     num_actions = env.action_space(env_params).n
     feature_extractor = FeatureExtractor(
@@ -55,14 +58,12 @@ def make(cfg):
     actor_network = Network(feature_extractor=feature_extractor, cell=cell, head=actor_head)
     critic_network = Network(feature_extractor=feature_extractor, cell=cell, head=critic_head)
 
-    make_optimizer = instantiate(cfg.optimizer)
-
     return PPO(
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,
         actor_network=actor_network,
         critic_network=critic_network,
-        actor_optimizer=make_optimizer(name="actor_optimizer", lr=cfg.actor_lr),
-        critic_optimizer=make_optimizer(name="critic_optimizer", lr=cfg.critic_lr),
+        actor_optimizer=instantiate(cfg.actor_optimizer),
+        critic_optimizer=instantiate(cfg.critic_optimizer),
     )

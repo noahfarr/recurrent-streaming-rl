@@ -1,5 +1,4 @@
 _target_: src.cells.RTUCell
-name: rtu
 config:
   _target_: src.cells.RTUConfig
   features: 64

@@ -1,7 +1,6 @@
 # @package _global_
 defaults:
   - override /algorithm: qrc_lambda
-  - override /optimizer: sgd
   - override /mode: rtrl
   - override /logger: [dashboard,wandb]
 

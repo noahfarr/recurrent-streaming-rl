@@ -1,16 +1,7 @@
-# @package _global_
-
-optimizer:
-  _target_: src.optimizers.obgd
-  _partial_: true
-  beta2: 0.999
-  eps: 1e-8
-  adaptive: false
-
-actor_lr: 1.0
-critic_lr: 1.0
-actor_kappa: 1.5
-critic_kappa: 1.0
-
-q_lr: 1.0
-q_kappa: 1.0
+_target_: src.optimizers.obgd
+name: ???
+lr: ???
+kappa: ???
+beta2: 0.999
+eps: 1e-8
+adaptive: false

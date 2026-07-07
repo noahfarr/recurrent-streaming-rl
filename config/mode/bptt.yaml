@@ -1,6 +1,5 @@
 # @package _global_
 mode:
-  name: bptt
   wrapper:
     _target_: src.cells.RNN
     _partial_: true
