@@ -2,15 +2,7 @@
 
 algorithm:
   _target_: streax.algorithms.RecurrentACLambdaConfig
-  name: stream_ac
+  name: ac_lambda
   gamma: 0.99
   trace_lambda: 0.8
   entropy_coefficient: 0.01
-
-actor_lr: 1.0
-critic_lr: 1.0
-actor_kappa: 1.5
-critic_kappa: 1.0
-adaptive: false
-beta2: 0.999
-eps: 1e-8

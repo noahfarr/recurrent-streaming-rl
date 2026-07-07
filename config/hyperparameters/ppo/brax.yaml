@@ -14,3 +14,9 @@ algorithm:
   clip_value_loss: True
   entropy_coefficient: 0.0
 
+optimizer:
+  max_grad_norm: 0.5
+
+actor_lr: 1e-4
+critic_lr: 1e-4
+

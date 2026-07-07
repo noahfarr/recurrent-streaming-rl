@@ -1,17 +1,15 @@
 import flax.linen as nn
 import jax.numpy as jnp
-import optax
 from hydra.utils import instantiate
 from streax.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
 )
 
-from src.utils.optimizers import inject_logger
 from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
-from src.networks import ObservationFeatureExtractor, build_cell, heads
+from src.networks import build_cell, heads
 from src.networks.network import Network
 
 
@@ -36,14 +34,12 @@ def make(cfg):
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
-    feature_extractor = ObservationFeatureExtractor(
-        layers=nn.Sequential(
-            (
-                nn.Dense(64, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
-                nn.tanh,
-            )
-        ),
-    )
+    feature_extractor = lambda obs, action, reward, done: nn.Sequential(
+        (
+            nn.Dense(64, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
+            nn.tanh,
+        )
+    )(obs)
 
     cell = build_cell(cfg)
 
@@ -67,11 +63,7 @@ def make(cfg):
         ),
     )
 
-    def make_optimizer(prefix):
-        return optax.chain(
-            optax.clip_by_global_norm(0.5),
-            inject_logger(optax.adam, prefix=prefix)(learning_rate=1e-4, eps=1e-5),
-        )
+    make_optimizer = instantiate(cfg.optimizer)
 
     return PPO(
         cfg=instantiate(cfg.algorithm),
@@ -79,6 +71,6 @@ def make(cfg):
         env_params=env_params,
         actor_network=actor_network,
         critic_network=critic_network,
-        actor_optimizer=make_optimizer("actor_optimizer"),
-        critic_optimizer=make_optimizer("critic_optimizer"),
+        actor_optimizer=make_optimizer(name="actor_optimizer", lr=cfg.actor_lr),
+        critic_optimizer=make_optimizer(name="critic_optimizer", lr=cfg.critic_lr),
     )

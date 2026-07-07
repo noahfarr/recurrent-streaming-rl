@@ -1,0 +1,9 @@
+# @package _global_
+
+optimizer:
+  _target_: src.optimizers.sgd
+  _partial_: true
+  max_grad_norm: 1.0
+
+q_lr: 1e-4
+h_lr: 1e-5

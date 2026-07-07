@@ -2,6 +2,7 @@ from typing import Callable
 
 import flax.linen as nn
 from hydra.utils import instantiate
+from omegaconf import open_dict
 
 from src.utils.identity import identity
 from src.utils.typing import Carry, Key
@@ -27,17 +28,11 @@ class Network(nn.Module):
         return self.cell.initialize_carry(key, input_shape)
 
 
-class ObservationFeatureExtractor(nn.Module):
-
-    layers: Callable
-
-    @nn.compact
-    def __call__(self, obs, action, reward, done):
-        return self.layers(obs)
-
-
-def build_cell(cfg):
+def build_cell(cfg, input_size=None):
     if cfg.cell.name == "ffn":
         return None
+    if input_size is not None:
+        with open_dict(cfg):
+            cfg.cell.config.features = input_size
     raw_cell = instantiate(cfg.cell)
     return instantiate(cfg.mode.wrapper)(cell=raw_cell)

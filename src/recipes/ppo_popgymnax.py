@@ -2,7 +2,6 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import numpy as np
-import optax
 from flax.linen.initializers import constant, orthogonal
 from hydra.utils import instantiate
 
@@ -10,39 +9,8 @@ from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
 from src.environments.wrappers import NormalizeVecObservation, NormalizeVecReward
 from src.networks import build_cell, heads
+from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network
-
-
-class FeatureExtractor(nn.Module):
-    features: int
-    num_actions: int
-
-    @nn.compact
-    def __call__(self, observation, action, reward, done, **kwargs):
-        action_embedding = jax.nn.one_hot(action, num_classes=self.num_actions)
-        x = jnp.concatenate([observation, action_embedding, reward[None]], axis=-1)
-        x = nn.Dense(
-            self.features,
-            kernel_init=orthogonal(np.sqrt(2)),
-            bias_init=constant(0.0),
-        )(x)
-        x = nn.tanh(x)
-        return x
-
-
-class HeadMLP(nn.Module):
-    hidden_features: int
-    head: nn.Module
-
-    @nn.compact
-    def __call__(self, x, **kwargs):
-        x = nn.Dense(
-            self.hidden_features,
-            kernel_init=orthogonal(2),
-            bias_init=constant(0.0),
-        )(x)
-        x = nn.tanh(x)
-        return self.head(x, **kwargs)
 
 
 def make(cfg):
@@ -51,33 +19,43 @@ def make(cfg):
     env = NormalizeVecReward(env, cfg.algorithm.gamma)
 
     num_actions = env.action_space(env_params).n
-    feature_extractor = FeatureExtractor(features=64, num_actions=num_actions)
-    cell = build_cell(cfg)
-    actor_head = HeadMLP(
-        hidden_features=64,
-        head=heads.Categorical(
-            action_dim=num_actions,
-            kernel_init=orthogonal(0.01),
-            bias_init=constant(0.0),
+    feature_extractor = FeatureExtractor(
+        observation_extractor=nn.Sequential(
+            [
+                nn.Dense(
+                    64,
+                    kernel_init=orthogonal(np.sqrt(2)),
+                    bias_init=constant(0.0),
+                ),
+                nn.tanh,
+            ]
         ),
+        action_extractor=lambda action: jax.nn.one_hot(action, num_classes=num_actions),
+        reward_extractor=lambda reward: reward[None],
     )
-    critic_head = HeadMLP(
-        hidden_features=64,
-        head=heads.VNetwork(
-            kernel_init=orthogonal(1.0),
-            bias_init=constant(0.0),
-        ),
+    feature_dim = jax.eval_shape(
+        feature_extractor.init_with_output,
+        jax.random.key(0),
+        jnp.zeros(env.observation_space(env_params).shape),
+        jnp.zeros((), jnp.int32),
+        jnp.zeros(()),
+        jnp.zeros((), bool),
+    )[0].shape[-1]
+
+    cell = build_cell(cfg, input_size=feature_dim)
+    actor_head = heads.Categorical(
+        action_dim=num_actions,
+        kernel_init=orthogonal(0.01),
+        bias_init=constant(0.0),
+    )
+    critic_head = heads.VNetwork(
+        kernel_init=orthogonal(1.0),
+        bias_init=constant(0.0),
     )
     actor_network = Network(feature_extractor=feature_extractor, cell=cell, head=actor_head)
     critic_network = Network(feature_extractor=feature_extractor, cell=cell, head=critic_head)
 
-    def make_optimizer(learning_rate):
-        return optax.chain(
-            optax.clip_by_global_norm(1.5),
-            optax.inject_hyperparams(optax.adam)(
-                learning_rate=learning_rate, eps=1e-5
-            ),
-        )
+    make_optimizer = instantiate(cfg.optimizer)
 
     return PPO(
         cfg=instantiate(cfg.algorithm),
@@ -85,6 +63,6 @@ def make(cfg):
         env_params=env_params,
         actor_network=actor_network,
         critic_network=critic_network,
-        actor_optimizer=make_optimizer(cfg.actor_lr),
-        critic_optimizer=make_optimizer(cfg.critic_lr),
+        actor_optimizer=make_optimizer(name="actor_optimizer", lr=cfg.actor_lr),
+        critic_optimizer=make_optimizer(name="critic_optimizer", lr=cfg.critic_lr),
     )

@@ -2,14 +2,11 @@
 
 algorithm:
   _target_: streax.algorithms.RecurrentQRCLambdaConfig
-  name: qrc
+  name: qrc_lambda
   gamma: 0.99
   trace_lambda: 0.8
   gradient_correction: true
   regularization_coefficient: 1.0
-
-q_lr: 1e-4
-h_lr: 1e-5
 
 epsilon_start: 1.0
 epsilon_end: 0.01

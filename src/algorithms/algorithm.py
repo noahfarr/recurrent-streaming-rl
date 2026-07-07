@@ -3,6 +3,7 @@ from omegaconf import open_dict
 from src.recipes import (
     ppo_brax,
     ppo_popgymnax,
+    q_lambda_popgymnax,
     qrc_bsuite,
     qrc_popgymnax,
     stream_ac_brax,
@@ -13,11 +14,12 @@ from src.recipes import (
 register = {
     ("ppo", "popgymnax"): ppo_popgymnax.make,
     ("ppo", "brax"): ppo_brax.make,
-    ("qrc", "bsuite"): qrc_bsuite.make,
-    ("qrc", "popgymnax"): qrc_popgymnax.make,
-    ("stream_ac", "bsuite"): stream_ac_bsuite.make,
-    ("stream_ac", "popgymnax"): stream_ac_popgymnax.make,
-    ("stream_ac", "brax"): stream_ac_brax.make,
+    ("qrc_lambda", "bsuite"): qrc_bsuite.make,
+    ("qrc_lambda", "popgymnax"): qrc_popgymnax.make,
+    ("q_lambda", "popgymnax"): q_lambda_popgymnax.make,
+    ("ac_lambda", "bsuite"): stream_ac_bsuite.make,
+    ("ac_lambda", "popgymnax"): stream_ac_popgymnax.make,
+    ("ac_lambda", "brax"): stream_ac_brax.make,
 }
 
 

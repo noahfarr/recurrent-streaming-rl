@@ -1,8 +1,9 @@
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+import optax
 from hydra.utils import instantiate
-from streax.algorithms import RecurrentACLambda
+from streax.algorithms import RecurrentQLambda
 from streax.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
@@ -44,34 +45,29 @@ def make(cfg):
 
     cell = build_cell(cfg, input_size=feature_dim)
 
-    actor_network = Network(
+    q_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.Categorical(
+        head=heads.DiscreteQNetwork(
             action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
         ),
     )
-    critic_network = Network(
-        feature_extractor=feature_extractor,
-        cell=cell,
-        head=heads.VNetwork(kernel_init=sparse(sparsity=0.9)),
+
+    epsilon_schedule = optax.linear_schedule(
+        cfg.epsilon_start,
+        cfg.epsilon_end,
+        int(cfg.total_timesteps * cfg.epsilon_fraction),
     )
 
     make_optimizer = instantiate(cfg.optimizer)
-    actor_optimizer = make_optimizer(
-        name="actor_optimizer", lr=cfg.actor_lr, kappa=cfg.actor_kappa
-    )
-    critic_optimizer = make_optimizer(
-        name="critic_optimizer", lr=cfg.critic_lr, kappa=cfg.critic_kappa
-    )
+    q_optimizer = make_optimizer(name="q_optimizer", lr=cfg.q_lr, kappa=cfg.q_kappa)
 
-    agent = RecurrentACLambda(
+    agent = RecurrentQLambda(
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,
-        actor_network=actor_network,
-        critic_network=critic_network,
-        actor_optimizer=actor_optimizer,
-        critic_optimizer=critic_optimizer,
+        q_network=q_network,
+        q_optimizer=q_optimizer,
+        epsilon_schedule=epsilon_schedule,
     )
     return agent
