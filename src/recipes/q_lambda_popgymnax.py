@@ -11,7 +11,7 @@ from streax.environments.wrappers import (
 from streax.networks import sparse
 
 from src.environments import environment
-from src.networks import build_cell, heads
+from src.networks import build_cell, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network
 
@@ -34,14 +34,13 @@ def make(cfg):
         reward_extractor=lambda reward: reward[None],
     )
 
-    feature_dim = jax.eval_shape(
-        feature_extractor.init_with_output,
-        jax.random.key(0),
+    feature_dim = infer_feature_dim(
+        feature_extractor,
         jnp.zeros(env.observation_space(env_params).shape),
         jnp.zeros((), jnp.int32),
         jnp.zeros(()),
         jnp.zeros((), bool),
-    )[0].shape[-1]
+    )
 
     cell = build_cell(cfg, input_size=feature_dim)
 

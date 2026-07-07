@@ -1,4 +1,5 @@
 import flax.linen as nn
+import jax.numpy as jnp
 from hydra.utils import instantiate
 from streax.algorithms import RecurrentACLambda
 from streax.environments.wrappers import (
@@ -8,7 +9,7 @@ from streax.environments.wrappers import (
 from streax.networks import sparse
 
 from src.environments import environment
-from src.networks import build_cell, heads
+from src.networks import build_cell, heads, infer_feature_dim
 from src.networks.network import Network
 
 
@@ -26,7 +27,14 @@ def make(cfg):
             nn.leaky_relu,
         )
     )(obs)
-    cell = build_cell(cfg)
+    feature_dim = infer_feature_dim(
+        feature_extractor,
+        jnp.zeros(env.observation_space(env_params).shape),
+        jnp.zeros((), jnp.int32),
+        jnp.zeros(()),
+        jnp.zeros((), bool),
+    )
+    cell = build_cell(cfg, input_size=feature_dim)
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
