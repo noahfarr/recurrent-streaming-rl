@@ -5,19 +5,28 @@ description = "Recurrent Streaming Reinforcement Learning"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "memorax[popjym,brax]",
+    "streamlet",
+    "popgymnax",
+    "distrax>=0.1.5",
     "hydra-core>=1.3.2",
     "omegaconf>=2.3.0",
 ]
 
 [tool.uv]
-required-environments = [
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-]
+override-dependencies = ["lox"]
 
 [tool.uv.sources]
-memorax = { git = "https://github.com/noahfarr/memorax.git" }
+lox = { git = "https://github.com/huterguier/lox", branch = "dev" }
+popgymnax = { git = "https://github.com/noahfarr/popgymnax.git" }
+streamlet = { git = "ssh://git@github.com/noahfarr/streamlet.git" }
 
 [tool.setuptools.packages.find]
 include = ["src*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,26 @@
+# @package _global_
+defaults:
+  - override /algorithm: ac_lambda
+  - override /mode: rtrl
+  - override /logger: [dashboard,wandb]
+
+seed: 0
+num_seeds: 5
+num_episodes: 0
+
+cell:
+  config:
+    features: 64
+    activation_fn:
+      _target_: src.utils.identity.identity
+      _partial_: true
+    output_activation_fn:
+      _target_: jax.numpy.tanh
+      _partial_: true
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      cell: rtu
+      environment: popgymnax/count_recall/easy,popgymnax/repeat_first/easy,popgymnax/concentration/easy,popgymnax/autoencode/easy,popgymnax/higher_lower/easy

@@ -1,8 +1,0 @@
-# @package _global_
-
-algorithm:
-  trace_lambda: 0.95
-  actor_kappa: 3.0
-  critic_kappa: 2.0
-
-total_timesteps: 300_000

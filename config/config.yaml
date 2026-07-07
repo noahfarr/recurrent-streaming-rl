@@ -5,12 +5,14 @@ deterministic: true
 seed: 0
 num_seeds: 1
 
+groups: ${groups:}
+
 loggers: {}
 
 defaults:
   - _self_
   - algorithm: ppo
-  - environment: popjym/easy/repeat_first
+  - environment: popgymnax/repeat_first/easy
   - cell: ffn
   - mode: bptt
   - logger: default

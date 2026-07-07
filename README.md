@@ -46,8 +46,14 @@ uv run main.py algorithm=qrc environment=gymnax/bsuite/memory_chain cell=rtu mod
 
 Algorithm-specific hyperparameters are resolved automatically from
 `config/hyperparameters/`. Override anything at the CLI, e.g.
-`algorithm.gamma=0.95`, `num_seeds=10`, `cell.cell.config.features=64`,
+`algorithm.gamma=0.95`, `num_seeds=10`, `cell.config.features=64`,
 `logger=[wandb]`.
+
+> This branch (`streamlet-port`) reproduces the paper's algorithms on top of
+> [`streamlet`](https://github.com/noahfarr/streamlet) instead of hand-rolled
+> eligibility-trace/optimizer/RTU-RTRL code, and covers §4.1–4.3 only. §4.4
+> (RTRL staleness, KMemoryChain) stays on `main`, which still uses the
+> original implementation.
 
 ## Reproducing the paper
 
@@ -56,37 +62,39 @@ Predefined sweeps live in `config/experiment/` and are selected with `experiment
 | Experiment | Paper section |
 | --- | --- |
 | `qrc_memory_chain` | 4.1 — MemoryChain |
-| `qrc_popjym`, `stream_ac_popjym`, `ppo_popjym` | 4.2 — POPGym |
+| `qrc_popgymnax`, `stream_ac_popgymnax`, `ppo_popgymnax` | 4.2 — POPGym |
 | `stream_ac_brax`, `ppo_brax` | 4.3 — Masked MuJoCo |
-| `qrc_k_memory_chain`, `stream_ac_k_memory_chain`, `k_memory_chain` | 4.4 — RTRL staleness |
 
 ```bash
-uv run main.py experiment=qrc_popjym
+uv run main.py experiment=qrc_popgymnax
 uv run main.py experiment=stream_ac_brax
 ```
 
 Each experiment file pins algorithm/mode/cell/logger and declares a Hydra
 multirun sweep over seeds, environments, and cell variants. Benchmarks:
 MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
-(`popjym/easy/*`), masked MuJoCo (`brax/*`, mask positions with
-`environment.kwargs.mode=P` or velocities with `V`), and KMemoryChain
-(`rsrl/k_memory_chain`).
+(`popgymnax/*/easy`), and masked MuJoCo (`brax/*`, mask velocities with
+`environment.kwargs.mode=P` or positions with `V`).
 
 ## Repository layout
 
 ```
 src/
-├── algorithms/        # qrc, stream_ac, ppo; one file per (algorithm, env-family)
-│   ├── eligibility_trace.py
-│   ├── optimizers/    # OBGD + logging wrappers
-│   └── algorithm.py   # (algorithm, env-family) -> make() registry
-├── cells/             # RTU cell, RTRL wrapper
-├── environments/      # KMemoryChain + observation/reward wrappers
-└── utils/             # profile (SPS), resolvers, staleness buffer, initializers
+├── algorithms/        # algorithm.py: (algorithm, env-family) -> make() registry
+│   ├── optimizers/    # logging wrapper for PPO's optax optimizers
+│   └── ppo/           # batched PPO baseline (streamlet Network/RTU/RTRL, own training loop)
+├── recipes/           # one make() factory per (algorithm, env-family): networks + wrappers + agent
+├── cells/             # RTU cell, RNN wrapper (TBPTT), RTRL wrapper (exact online gradient)
+├── networks/          # Network composition, feature-extractor/head building blocks
+├── environments/      # observation/reward/action wrappers
+└── utils/             # profile (SPS), resolvers, typing, initializers
 
 config/                # hydra: algorithm, environment, cell, mode, hyperparameters, experiment, logger
 main.py                # entry point
 ```
+
+`qrc` and `stream_ac` are thin factories around `streamlet.algorithms.RecurrentQRCLambda`
+and `RecurrentACLambda`; the algorithm math itself lives in `streamlet`.
 
 ## Citation
 

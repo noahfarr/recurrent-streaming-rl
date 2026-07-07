@@ -1,0 +1,8 @@
+_target_: src.cells.MinGRUCell
+config:
+  _target_: src.cells.MinGRUConfig
+  features: 64
+  hidden_dim: 192
+  output_activation_fn:
+    _target_: jax.numpy.tanh
+    _partial_: true

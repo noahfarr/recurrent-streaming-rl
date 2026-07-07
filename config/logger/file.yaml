@@ -1,0 +1,3 @@
+# @package loggers.file
+_target_: src.loggers.FileLogger
+path: metrics.npz

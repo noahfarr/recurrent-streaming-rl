@@ -2,6 +2,7 @@ from pathlib import Path
 
 import gymnax
 from hydra.core.global_hydra import GlobalHydra
+from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
@@ -46,7 +47,8 @@ def cascading_fallback(algorithm: str, environment: str, cell=None) -> str:
 
 
 def get_group(_root_):
-    group = f"{_root_.algorithm.name}_{_root_.environment.namespace}_{_root_.environment.env_id}"
+    algorithm = HydraConfig.get().runtime.choices["algorithm"]
+    group = f"{algorithm}_{_root_.environment.namespace}_{_root_.environment.env_id}"
 
     # if _root_.environment.get("kwargs"):
     #     kwargs = {
@@ -61,7 +63,13 @@ def get_group(_root_):
     return group
 
 
+def groups():
+    choices = HydraConfig.get().runtime.choices
+    return {k: v for k, v in choices.items() if not k.startswith("hydra/")}
+
+
 OmegaConf.register_new_resolver("eval", eval)
 OmegaConf.register_new_resolver("get_action_dim", get_action_dim)
 OmegaConf.register_new_resolver("cascading_fallback", cascading_fallback)
 OmegaConf.register_new_resolver("get_group", get_group)
+OmegaConf.register_new_resolver("groups", groups)

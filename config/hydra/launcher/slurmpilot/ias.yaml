@@ -1,0 +1,18 @@
+defaults:
+  - slurmpilot
+  - _self_
+  - slurmpilot/device: cpu
+
+cluster: ias
+unify_method: null
+
+max_runtime_minutes: 720
+n_cpus: 2
+mem: 8000
+
+bash_setup_command: "source $HOME/streaming-rl-in-big-worlds/.venv/bin/activate"
+
+sbatch_arguments: "--output=logs/stdout-%a --error=logs/stderr-%a --exclude=dgx-station"
+
+env:
+  PYTHONUNBUFFERED: "1"

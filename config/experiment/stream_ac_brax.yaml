@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - override /algorithm: stream_ac
+  - override /algorithm: ac_lambda
   - override /mode: rtrl
   - override /logger: [wandb]
 

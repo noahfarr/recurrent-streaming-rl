@@ -1,28 +1,24 @@
 from hydra.utils import instantiate
-from memorax.environments import RecordEpisodeStatistics, environment
+from streamlet.environments import environment
+from streamlet.environments.wrappers import RecordEpisodeStatistics
 
-from src.environments.k_memory_chain import (
-    KMemoryChain,
-    EnvParams as KMemoryChainEnvParams,
-)
-
-
-registry = {
-    "KMemoryChain-v0": (KMemoryChain, KMemoryChainEnvParams),
-}
+from src.environments import popgymnax
+from src.environments.wrappers import MaskObservationWrapper
 
 
 def make(namespace, env_id, **kwargs):
-    if namespace == "rsrl" and env_id in registry:
-        env_cls, params_cls = registry[env_id]
-        env = env_cls(**(kwargs.get("kwargs") or {}))
-        env_params = env.default_params.replace(**(kwargs.get("env_params") or {}))
+    env_kwargs = dict(kwargs.get("kwargs") or {})
+    mode = env_kwargs.pop("mode", None)
+    if namespace == "popgymnax":
+        env, env_params = popgymnax.make(env_id, **env_kwargs)
     else:
-        env_id = f"{namespace}::{env_id}"
-        env, env_params = environment.make(env_id, **(kwargs.get("kwargs") or {}))
+        env, env_params = environment.make(f"{namespace}::{env_id}", **env_kwargs)
 
-        if env_params is not None:
-            env_params = env_params.replace(**(kwargs.get("env_params") or {}))
+    if mode in ("P", "V"):
+        env = MaskObservationWrapper(env, mode)
+
+    if env_params is not None:
+        env_params = env_params.replace(**(kwargs.get("env_params") or {}))
 
     env = RecordEpisodeStatistics(env)
     for wrapper in kwargs.get("wrappers", []):
