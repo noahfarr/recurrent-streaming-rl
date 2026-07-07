@@ -36,11 +36,7 @@ class RTRL(nn.Module):
         )
 
         def update_influence(influence_unit, parameter_jacobian_unit):
-            rotated = jax.vmap(
-                lambda state_jacobian, influence: state_jacobian @ influence,
-                in_axes=(0, 1),
-                out_axes=1,
-            )(state_jacobian, influence_unit)
+            rotated = self.cell.propagate_influence(state_jacobian, influence_unit)
             return rotated + parameter_jacobian_unit
 
         next_influence = jax.tree.map(

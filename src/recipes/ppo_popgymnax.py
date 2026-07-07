@@ -54,8 +54,12 @@ def make(cfg):
         kernel_init=orthogonal(1.0),
         bias_init=constant(0.0),
     )
-    actor_network = Network(feature_extractor=feature_extractor, cell=cell, head=actor_head)
-    critic_network = Network(feature_extractor=feature_extractor, cell=cell, head=critic_head)
+    actor_network = Network(
+        feature_extractor=feature_extractor, cell=cell, head=actor_head
+    )
+    critic_network = Network(
+        feature_extractor=feature_extractor, cell=cell, head=critic_head
+    )
 
     return PPO(
         cfg=instantiate(cfg.algorithm),

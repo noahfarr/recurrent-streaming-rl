@@ -22,3 +22,11 @@ streamlet = { git = "ssh://git@github.com/noahfarr/streamlet.git" }
 
 [tool.setuptools.packages.find]
 include = ["src*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

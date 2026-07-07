@@ -106,7 +106,7 @@ class RTUCell(RNNCellBase):
         carry = jnp.stack([carry.real, carry.imaginary], axis=-1)
 
         new_carry = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, None))(
-            carry,
+            jax.lax.stop_gradient(carry),
             *jax.lax.stop_gradient(
                 (self.nu_log, self.theta_log, self.B_real, self.B_imag)
             ),
@@ -136,6 +136,13 @@ class RTUCell(RNNCellBase):
 
         carry = RTUCarry(real=new_carry[:, 0], imaginary=new_carry[:, 1])
         return carry, state_jacobian, parameter_jacobian
+
+    def propagate_influence(self, state_jacobian, influence_leaf):
+        return jax.vmap(
+            lambda unit_jacobian, unit_influence: unit_jacobian @ unit_influence,
+            in_axes=(0, 1),
+            out_axes=1,
+        )(state_jacobian, influence_leaf)
 
     def inject_influence(self, carry, influence):
 
