@@ -26,16 +26,6 @@ MuJoCo continuous control, the streaming approach is competitive with batched PP
 on POPGym and recovers a substantial fraction of batched performance on masked
 MuJoCo, despite using no replay buffer or batched updates.
 
-## Method
-
-An RTU layer trained by exact real-time recurrent learning (RTRL) is inserted
-between the observation and the feedforward head of an existing streaming RL
-algorithm. The streaming update machinery — eligibility traces and step-size
-adaptation — is left unchanged: the RTRL trace and the eligibility trace compose
-without modification, yielding a single-pass procedure that propagates credit
-through both the recurrent state and time, with no truncation and no replay
-buffer.
-
 ## Installation
 
 ```bash
