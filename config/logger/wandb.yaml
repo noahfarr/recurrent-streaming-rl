@@ -1,5 +1,5 @@
 # @package loggers.wandb
-_target_: streax.loggers.WandbLogger
+_target_: streamlet.loggers.WandbLogger
 project: rsrl
 name: ${hydra:runtime.choices.algorithm}_${environment.namespace}_${environment.env_id}_${seed}_${now:%Y%m%d_%H%M%S}
 group: ${get_group:}

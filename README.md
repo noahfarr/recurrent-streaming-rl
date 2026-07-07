@@ -59,8 +59,8 @@ Algorithm-specific hyperparameters are resolved automatically from
 `algorithm.gamma=0.95`, `num_seeds=10`, `cell.config.features=64`,
 `logger=[wandb]`.
 
-> This branch (`streax-port`) reproduces the paper's algorithms on top of
-> [`streax`](https://github.com/noahfarr/streax) instead of hand-rolled
+> This branch (`streamlet-port`) reproduces the paper's algorithms on top of
+> [`streamlet`](https://github.com/noahfarr/streamlet) instead of hand-rolled
 > eligibility-trace/optimizer/RTU-RTRL code, and covers §4.1–4.3 only. §4.4
 > (RTRL staleness, KMemoryChain) stays on `main`, which still uses the
 > original implementation.
@@ -83,7 +83,7 @@ uv run main.py experiment=stream_ac_brax
 Each experiment file pins algorithm/mode/cell/logger and declares a Hydra
 multirun sweep over seeds, environments, and cell variants. Benchmarks:
 MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
-(`popgymnax/easy/*`), and masked MuJoCo (`brax/*`, mask velocities with
+(`popgymnax/*/easy`), and masked MuJoCo (`brax/*`, mask velocities with
 `environment.kwargs.mode=P` or positions with `V`).
 
 ## Repository layout
@@ -92,7 +92,7 @@ MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
 src/
 ├── algorithms/        # algorithm.py: (algorithm, env-family) -> make() registry
 │   ├── optimizers/    # logging wrapper for PPO's optax optimizers
-│   └── ppo/           # batched PPO baseline (streax Network/RTU/RTRL, own training loop)
+│   └── ppo/           # batched PPO baseline (streamlet Network/RTU/RTRL, own training loop)
 ├── recipes/           # one make() factory per (algorithm, env-family): networks + wrappers + agent
 ├── cells/             # RTU cell, RNN wrapper (TBPTT), RTRL wrapper (exact online gradient)
 ├── networks/          # Network composition, feature-extractor/head building blocks
@@ -103,8 +103,8 @@ config/                # hydra: algorithm, environment, cell, mode, hyperparamet
 main.py                # entry point
 ```
 
-`qrc` and `stream_ac` are thin factories around `streax.algorithms.RecurrentQRCLambda`
-and `RecurrentACLambda`; the algorithm math itself lives in `streax`.
+`qrc` and `stream_ac` are thin factories around `streamlet.algorithms.RecurrentQRCLambda`
+and `RecurrentACLambda`; the algorithm math itself lives in `streamlet`.
 
 ## Citation
 

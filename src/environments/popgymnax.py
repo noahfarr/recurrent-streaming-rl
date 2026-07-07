@@ -3,8 +3,8 @@ from typing import Any
 from flax import struct
 from gymnax.environments import spaces
 
-from streax.environments.wrappers import GymnaxWrapper
-from streax.utils.typing import Array, Key
+from streamlet.environments.wrappers import GymnaxWrapper
+from streamlet.utils.typing import Array, Key
 
 max_steps_in_episode = {
     "AutoencodeEasy": 105,

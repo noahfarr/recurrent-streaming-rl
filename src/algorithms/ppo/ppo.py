@@ -9,8 +9,8 @@ import lox
 import optax
 from flax import core, struct
 
-from streax.utils import Timestep, Transition, canonicalize_dtype
-from streax.utils.typing import (
+from streamlet.utils import Timestep, Transition, canonicalize_dtype
+from streamlet.utils.typing import (
     Array,
     Discrete,
     Environment,

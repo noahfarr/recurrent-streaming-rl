@@ -1,5 +1,5 @@
 import optax
-from streax.optimizers import ObGD, ObGDConfig, OptaxOptimizer
+from streamlet.optimizers import ObGD, ObGDConfig, OptaxOptimizer
 
 from src.utils.optimizers import inject_logger
 

@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import lox
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
-from streax.loggers import MultiLogger
+from streamlet.loggers import MultiLogger
 
 from src import algorithm
 from src.utils import profile

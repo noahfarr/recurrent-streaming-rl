@@ -1843,7 +1843,7 @@ dependencies = [
     { name = "hydra-core" },
     { name = "omegaconf" },
     { name = "popgymnax" },
-    { name = "streax" },
+    { name = "streamlet" },
 ]
 
 [package.metadata]
@@ -1852,7 +1852,7 @@ requires-dist = [
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
     { name = "popgymnax", git = "https://github.com/noahfarr/popgymnax.git" },
-    { name = "streax", git = "ssh://git@github.com/noahfarr/streax.git" },
+    { name = "streamlet", git = "ssh://git@github.com/noahfarr/streamlet.git" },
 ]
 
 [[package]]
@@ -2043,9 +2043,9 @@ wheels = [
 ]
 
 [[package]]
-name = "streax"
+name = "streamlet"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/noahfarr/streax.git#4d76c83215ef2cb61a11b78988127b953f024cf3" }
+source = { git = "ssh://git@github.com/noahfarr/streamlet.git#c0d1f05b7e49ff5c24ebca972a3338e56a118fd1" }
 dependencies = [
     { name = "animax" },
     { name = "brax" },

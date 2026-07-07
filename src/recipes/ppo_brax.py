@@ -1,7 +1,7 @@
 import flax.linen as nn
 import jax.numpy as jnp
 from hydra.utils import instantiate
-from streax.environments.wrappers import (
+from streamlet.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
 )

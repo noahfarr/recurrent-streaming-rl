@@ -1,6 +1,6 @@
 from hydra.utils import instantiate
-from streax.environments import environment
-from streax.environments.wrappers import RecordEpisodeStatistics
+from streamlet.environments import environment
+from streamlet.environments.wrappers import RecordEpisodeStatistics
 
 from src.environments import popgymnax
 from src.environments.wrappers import MaskObservationWrapper

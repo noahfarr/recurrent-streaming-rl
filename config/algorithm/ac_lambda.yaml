@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 algorithm:
-  _target_: streax.algorithms.RecurrentACLambdaConfig
+  _target_: streamlet.algorithms.RecurrentACLambdaConfig
   gamma: 0.99
   trace_lambda: 0.8
   entropy_coefficient: 0.01

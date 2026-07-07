@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 from flax.linen.initializers import constant, orthogonal
 from hydra.utils import instantiate
-from streax.environments.wrappers import (
+from streamlet.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
 )

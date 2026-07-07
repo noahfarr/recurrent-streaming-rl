@@ -2,7 +2,7 @@ from typing import Any
 
 import jax.numpy as jnp
 from gymnax.wrappers.purerl import GymnaxWrapper
-from streax.utils.typing import Array, EnvParams, Key
+from streamlet.utils.typing import Array, EnvParams, Key
 
 
 class ClipActionWrapper(GymnaxWrapper):

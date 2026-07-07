@@ -1,12 +1,12 @@
 import flax.linen as nn
 import jax.numpy as jnp
 from hydra.utils import instantiate
-from streax.algorithms import RecurrentACLambda
-from streax.environments.wrappers import (
+from streamlet.algorithms import RecurrentACLambda
+from streamlet.environments.wrappers import (
     NormalizeObservationWrapper,
     NormalizeRewardWrapper,
 )
-from streax.networks import sparse
+from streamlet.networks import sparse
 
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
