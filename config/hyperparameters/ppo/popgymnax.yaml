@@ -3,7 +3,7 @@
 algorithm:
   num_envs: 32
   num_steps: 64
-  num_minibatches: 32
+  num_minibatches: 8
   update_epochs: 4
   gamma: 0.99
   gae_lambda: 0.95
