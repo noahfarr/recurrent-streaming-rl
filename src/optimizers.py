@@ -23,3 +23,12 @@ def adam(name, lr, eps=1e-5, max_grad_norm=None):
     if max_grad_norm is not None:
         tx = optax.chain(optax.clip_by_global_norm(max_grad_norm), tx)
     return tx
+
+
+def adamw(name, lr, b2=0.999, eps=1e-8, weight_decay=1e-4, max_grad_norm=None):
+    tx = inject_logger(optax.adamw, prefix=name)(
+        learning_rate=lr, b2=b2, eps=eps, weight_decay=weight_decay
+    )
+    if max_grad_norm is not None:
+        tx = optax.chain(optax.clip_by_global_norm(max_grad_norm), tx)
+    return tx

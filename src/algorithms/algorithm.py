@@ -9,11 +9,15 @@ from src.recipes import (
     q_lambda_popgymnax,
     qrc_lambda_bsuite,
     qrc_lambda_popgymnax,
+    sac_brax,
+    fast_sac_brax,
 )
 
 register = {
     ("ppo", "popgymnax"): ppo_popgymnax.make,
     ("ppo", "brax"): ppo_brax.make,
+    ("sac", "brax"): sac_brax.make,
+    ("fast_sac", "brax"): fast_sac_brax.make,
     ("qrc_lambda", "bsuite"): qrc_lambda_bsuite.make,
     ("qrc_lambda", "popgymnax"): qrc_lambda_popgymnax.make,
     ("q_lambda", "popgymnax"): q_lambda_popgymnax.make,

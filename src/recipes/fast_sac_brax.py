@@ -1,0 +1,115 @@
+import flax.linen as nn
+import jax.numpy as jnp
+from flashbax.buffers.trajectory_buffer import make_trajectory_buffer
+from hydra.utils import instantiate
+from streamlet.environments.wrappers import (
+    NormalizeObservationWrapper,
+    NormalizeRewardWrapper,
+)
+
+from src.algorithms.fast_sac import FastSAC
+from src.environments import environment
+from src.environments.wrappers import ClipActionWrapper
+from src.networks import Network, build_cell, heads, infer_feature_dim
+
+HIDDEN = 256
+
+
+class ProjectedHead(nn.Module):
+    features: int
+    head: nn.Module
+
+    @nn.compact
+    def __call__(self, x, **kwargs):
+        x = nn.Dense(
+            self.features,
+            kernel_init=nn.initializers.orthogonal(jnp.sqrt(2)),
+            bias_init=nn.initializers.constant(0.0),
+        )(x)
+        x = nn.LayerNorm()(x)
+        x = nn.tanh(x)
+        return self.head(x, **kwargs)
+
+
+def make(cfg):
+    env, env_params = environment.make(**cfg.environment)
+    env = ClipActionWrapper(env, low=-1.0, high=1.0)
+    env = NormalizeObservationWrapper(env)
+    env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
+
+    feature_extractor = lambda obs, action, reward, done: nn.Sequential(
+        (
+            nn.Dense(HIDDEN, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
+            nn.LayerNorm(),
+            nn.relu,
+        )
+    )(obs)
+
+    feature_dim = infer_feature_dim(
+        feature_extractor,
+        jnp.zeros(env.observation_space(env_params).shape),
+        jnp.zeros(env.action_space(env_params).shape),
+        jnp.zeros(()),
+        jnp.zeros((), bool),
+    )
+    cell = build_cell(cfg, input_size=feature_dim)
+
+    action_dim = env.action_space(env_params).shape[0]
+
+    actor_network = Network(
+        feature_extractor=feature_extractor,
+        cell=cell,
+        head=ProjectedHead(
+            features=HIDDEN,
+            head=heads.SquashedGaussian(
+                action_dim=action_dim,
+                kernel_init=nn.initializers.orthogonal(0.01),
+                LOG_STD_MAX=0.0,
+            ),
+        ),
+    )
+
+    num_critics = cfg.algorithm.num_critics
+    num_atoms = cfg.algorithm.num_atoms
+
+    critic_network = Network(
+        feature_extractor=feature_extractor,
+        cell=cell,
+        head=ProjectedHead(
+            features=HIDDEN,
+            head=lambda x, **kwargs: nn.vmap(
+                heads.DistributionalContinuousQNetwork,
+                variable_axes={"params": 0},
+                split_rngs={"params": True},
+                in_axes=(None, None),
+                out_axes=-1,
+                axis_size=num_critics,
+            )(num_atoms=num_atoms, kernel_init=nn.initializers.orthogonal(1.0))(
+                x, kwargs["action"]
+            ),
+        ),
+    )
+
+    alpha_network = heads.Alpha(initial_alpha=0.001)
+
+    buffer = make_trajectory_buffer(
+        add_batch_size=cfg.algorithm.num_envs,
+        sample_batch_size=cfg.algorithm.batch_size,
+        sample_sequence_length=cfg.algorithm.sequence_length,
+        period=1,
+        min_length_time_axis=cfg.algorithm.sequence_length,
+        max_length_time_axis=cfg.algorithm.buffer_size // cfg.algorithm.num_envs,
+    )
+
+    return FastSAC(
+        cfg=instantiate(cfg.algorithm),
+        env=env,
+        env_params=env_params,
+        actor_network=actor_network,
+        critic_network=critic_network,
+        alpha_network=alpha_network,
+        actor_optimizer=instantiate(cfg.actor_optimizer),
+        critic_optimizer=instantiate(cfg.critic_optimizer),
+        alpha_optimizer=instantiate(cfg.alpha_optimizer),
+        buffer=buffer,
+    )

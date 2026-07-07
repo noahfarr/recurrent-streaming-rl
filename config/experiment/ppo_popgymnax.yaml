@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - override /algorithm: ppo
-  - override /mode: rtrl
+  - override /mode: bptt
   - override /cell: rtu
   - override /logger: [dashboard,wandb]
 

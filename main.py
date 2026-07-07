@@ -37,9 +37,18 @@ def main(cfg):
     )
 
     key = jax.random.key(cfg.seed)
-    init_key, train_key = jax.random.split(key)
+    init_key, warmup_key, train_key = jax.random.split(key, 3)
 
     state = init(jax.random.split(init_key, cfg.num_seeds))
+
+    learning_starts = int(cfg.get("learning_starts", 0) or 0)
+    if learning_starts:
+        warmup = jax.jit(
+            jax.vmap(agent.warmup, in_axes=(0, 0, None)), static_argnums=(2,)
+        )
+        state = warmup(
+            jax.random.split(warmup_key, cfg.num_seeds), state, learning_starts
+        )
 
     train_keys = jax.random.split(train_key, cfg.num_epochs)
     for epoch in range(cfg.num_epochs):

@@ -1,6 +1,7 @@
 import distrax
 import flax.linen as nn
 import jax.numpy as jnp
+from flax.linen.initializers import constant
 
 from src.utils.typing import Array
 
@@ -50,6 +51,66 @@ class Gaussian(nn.Module):
             self.action_dim, kernel_init=self.kernel_init, bias_init=self.bias_init
         )(x)
         log_std = self.param("log_std", nn.initializers.zeros, self.action_dim)
+        scale = jnp.broadcast_to(jnp.exp(log_std), mean.shape)
         return distrax.Independent(
-            distrax.Normal(loc=mean, scale=jnp.exp(log_std)), reinterpreted_batch_ndims=1
+            distrax.Normal(loc=mean, scale=scale), reinterpreted_batch_ndims=1
         )
+
+
+class SquashedGaussian(nn.Module):
+    action_dim: int
+    kernel_init: nn.initializers.Initializer = nn.initializers.lecun_normal()
+    bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
+
+    LOG_STD_MIN: float = -10.0
+    LOG_STD_MAX: float = 2.0
+
+    @nn.compact
+    def __call__(self, x: Array, **kwargs) -> distrax.Transformed:
+        temperature = kwargs.get("temperature", 1.0)
+
+        mean = nn.Dense(
+            self.action_dim, kernel_init=self.kernel_init, bias_init=self.bias_init
+        )(x)
+        log_std = nn.Dense(
+            self.action_dim, kernel_init=self.kernel_init, bias_init=self.bias_init
+        )(x)
+        log_std = jnp.clip(log_std, self.LOG_STD_MIN, self.LOG_STD_MAX)
+        std = jnp.exp(log_std) * temperature
+
+        base = distrax.Independent(
+            distrax.Normal(loc=mean, scale=std), reinterpreted_batch_ndims=1
+        )
+        return distrax.Transformed(base, distrax.Block(distrax.Tanh(), ndims=1))
+
+
+class ContinuousQNetwork(nn.Module):
+    kernel_init: nn.initializers.Initializer = nn.initializers.lecun_normal()
+    bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
+
+    @nn.compact
+    def __call__(self, x: Array, action: Array, **kwargs) -> Array:
+        q = nn.Dense(1, kernel_init=self.kernel_init, bias_init=self.bias_init)(
+            jnp.concatenate([x, action], axis=-1)
+        )
+        return jnp.squeeze(q, axis=-1)
+
+
+class DistributionalContinuousQNetwork(nn.Module):
+    num_atoms: int = 51
+    kernel_init: nn.initializers.Initializer = nn.initializers.lecun_normal()
+    bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
+
+    @nn.compact
+    def __call__(self, x: Array, action: Array, **kwargs) -> Array:
+        return nn.Dense(
+            self.num_atoms, kernel_init=self.kernel_init, bias_init=self.bias_init
+        )(jnp.concatenate([x, action], axis=-1))
+
+
+class Alpha(nn.Module):
+    initial_alpha: float = 1.0
+
+    @nn.compact
+    def __call__(self) -> Array:
+        return self.param("log_alpha", constant(jnp.log(self.initial_alpha)), ())

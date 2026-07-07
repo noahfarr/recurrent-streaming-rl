@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 
 import flax.linen as nn
 import jax
@@ -12,7 +12,6 @@ from flax import core, struct
 from streamlet.utils import Timestep, Transition, canonicalize_dtype
 from streamlet.utils.typing import (
     Array,
-    Discrete,
     Environment,
     EnvParams,
     EnvState,
@@ -20,7 +19,8 @@ from streamlet.utils.typing import (
     PyTree,
 )
 
-Carry = PyTree
+from src.cells import RTRL
+from src.utils.typing import Carry
 
 
 def broadcast_done(done: Array, leaf: Array) -> Array:
@@ -61,16 +61,6 @@ class PPOState:
 
 @dataclass
 class PPO:
-    """Batched PPO baseline.
-
-    Each replayed sample carries its own stored (carry, ...) from collection
-    time, so shuffled-minibatch updates work for any recurrent cell: a plain
-    RNN-wrapped cell gives the standard TBPTT(1) gradient (the carry is a
-    fixed input, not a function of params), while an RTRL-wrapped cell
-    additionally injects the accumulated real-time-recurrent gradient through
-    its stored influence. Both modes share this same training loop.
-    """
-
     cfg: PPOConfig
     env: Environment
     env_params: EnvParams
@@ -80,54 +70,26 @@ class PPO:
     critic_optimizer: optax.GradientTransformation
 
     def __post_init__(self):
-        assert self.cfg.update_epochs >= 1, (
-            f"update_epochs ({self.cfg.update_epochs}) must be >= 1"
-        )
+        assert (
+            self.cfg.update_epochs >= 1
+        ), f"update_epochs ({self.cfg.update_epochs}) must be >= 1"
         assert self.cfg.batch_size % self.cfg.num_minibatches == 0, (
             f"num_envs * num_steps ({self.cfg.batch_size}) must be divisible by "
             f"num_minibatches ({self.cfg.num_minibatches})"
         )
+        assert not isinstance(
+            getattr(self.actor_network, "cell", None), RTRL
+        ), "PPO requires a BPTT cell (mode=bptt), not RTRL"
+        assert not isinstance(
+            getattr(self.critic_network, "cell", None), RTRL
+        ), "PPO requires a BPTT cell (mode=bptt), not RTRL"
 
-    def _apply(self, network: nn.Module, params, carry, timestep) -> tuple:
+    def apply(self, network: nn.Module, params, carry, timestep) -> tuple:
         return jax.vmap(network.apply, in_axes=(None, 0, 0, 0, 0, 0))(
             params, carry, *timestep
         )
 
-    def _deterministic_action(
-        self, key: Key, state: PPOState
-    ) -> tuple[PPOState, Array, Array, None]:
-        actor_carry, probs = self._apply(
-            self.actor_network, state.actor_params, state.actor_carry, state.timestep
-        )
-        action = (
-            jnp.argmax(probs.logits, axis=-1)
-            if isinstance(self.env.action_space(self.env_params), Discrete)
-            else probs.mode()
-        )
-        log_prob = probs.log_prob(action)
-        return state.replace(actor_carry=actor_carry), action, log_prob, None
-
-    def _stochastic_action(
-        self, key: Key, state: PPOState
-    ) -> tuple[PPOState, Array, Array, Array]:
-        actor_carry, probs = self._apply(
-            self.actor_network, state.actor_params, state.actor_carry, state.timestep
-        )
-        action, log_prob = probs.sample_and_log_prob(seed=key)
-
-        critic_carry, value = self._apply(
-            self.critic_network, state.critic_params, state.critic_carry, state.timestep
-        )
-        value = jnp.squeeze(value, axis=-1)
-
-        return (
-            state.replace(actor_carry=actor_carry, critic_carry=critic_carry),
-            action,
-            log_prob,
-            value,
-        )
-
-    def _generalized_advantage_estimation(self, carry: tuple, transition: Transition):
+    def generalized_advantage_estimation(self, carry: tuple, transition: Transition):
         advantage, next_value = carry
         delta = (
             transition.second.reward
@@ -143,13 +105,21 @@ class PPO:
         )
         return (advantage, transition.aux["value"]), advantage
 
-    def _step(
-        self, state: PPOState, key: Key, *, policy: Callable
+    def rollout(
+        self, state: PPOState, key: Key, *, temperature: float
     ) -> tuple[PPOState, Transition]:
         action_key, step_key = jax.random.split(key)
-        actor_carry = state.actor_carry
-        critic_carry = state.critic_carry
-        state, action, log_prob, value = policy(action_key, state)
+
+        actor_carry, dist = self.apply(
+            self.actor_network, state.actor_params, state.actor_carry, state.timestep
+        )
+        action, log_prob = dist.sample_and_log_prob(seed=action_key)
+        action = jnp.where(temperature == 0.0, dist.mode(), action)
+
+        critic_carry, value = self.apply(
+            self.critic_network, state.critic_params, state.critic_carry, state.timestep
+        )
+        value = jnp.squeeze(value, axis=-1)
 
         step_keys = jax.random.split(step_key, self.cfg.num_envs)
         next_obs, env_state, reward, done, info = jax.vmap(
@@ -165,8 +135,6 @@ class PPO:
             aux={
                 "log_prob": log_prob,
                 "value": value,
-                "actor_carry": actor_carry,
-                "critic_carry": critic_carry,
             },
         )
 
@@ -181,13 +149,15 @@ class PPO:
                 done=done,
             ),
             env_state=env_state,
+            actor_carry=actor_carry,
+            critic_carry=critic_carry,
         )
         return state, transition
 
-    def _update_actor(
+    def update_actor(
         self,
-        key: Key,
         state: PPOState,
+        initial_carry: Carry,
         transitions: Transition,
     ) -> tuple[PPOState, Array, tuple[Array, Array, Array]]:
         advantages = transitions.aux["advantages"]
@@ -195,9 +165,8 @@ class PPO:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         def actor_loss_fn(params: PyTree):
-            _, probs = self._apply(
-                self.actor_network, params, transitions.aux["actor_carry"],
-                transitions.first,
+            _, probs = self.apply(
+                self.actor_network, params, initial_carry, transitions.first
             )
             log_probs = probs.log_prob(transitions.second.action)
             entropy = probs.entropy().mean()
@@ -237,18 +206,17 @@ class PPO:
         )
         return state, actor_loss.mean(), aux
 
-    def _update_critic(
+    def update_critic(
         self,
-        key: Key,
         state: PPOState,
+        initial_carry: Carry,
         transitions: Transition,
     ) -> tuple[PPOState, Array]:
         returns = transitions.aux["returns"]
 
         def critic_loss_fn(params: PyTree):
-            _, values = self._apply(
-                self.critic_network, params, transitions.aux["critic_carry"],
-                transitions.first,
+            _, values = self.apply(
+                self.critic_network, params, initial_carry, transitions.first
             )
             values = jnp.squeeze(values, axis=-1)
 
@@ -284,43 +252,50 @@ class PPO:
         )
         return state, critic_loss.mean()
 
-    def _update_minibatch(
-        self, state: PPOState, xs: tuple
+    def update_minibatch(
+        self, state: PPOState, minibatch: tuple
     ) -> tuple[PPOState, tuple[Array, Array, tuple[Array, Array, Array]]]:
-        transitions, key = xs
+        initial_actor_carry, initial_critic_carry, transitions = minibatch
 
-        actor_key, critic_key = jax.random.split(key)
-
-        state, critic_loss = self._update_critic(critic_key, state, transitions)
-        state, actor_loss, aux = self._update_actor(actor_key, state, transitions)
+        state, critic_loss = self.update_critic(
+            state, initial_critic_carry, transitions
+        )
+        state, actor_loss, aux = self.update_actor(
+            state, initial_actor_carry, transitions
+        )
 
         return state, (actor_loss, critic_loss, aux)
 
-    def _update_epoch(self, carry: tuple, key: Key) -> tuple:
-        state, transitions = carry
+    def update_epoch(self, carry: tuple, key: Key) -> tuple:
+        state, initial_actor_carry, initial_critic_carry, transitions = carry
 
-        permutation_key, minibatch_key = jax.random.split(key)
+        if initial_actor_carry is not None:
+            num_permutations = self.cfg.num_envs
+            batch = (initial_actor_carry, initial_critic_carry, transitions)
+        else:
+            num_permutations = self.cfg.num_envs * self.cfg.num_steps
+            batch = (
+                initial_actor_carry,
+                initial_critic_carry,
+                jax.tree.map(lambda x: x.reshape(-1, *x.shape[2:]), transitions),
+            )
 
-        flat = jax.tree.map(lambda x: x.reshape(-1, *x.shape[2:]), transitions)
-        num_permutations = self.cfg.num_envs * self.cfg.num_steps
-        permutation = jax.random.permutation(permutation_key, num_permutations)
+        permutation = jax.random.permutation(key, num_permutations)
         minibatches = jax.tree.map(
             lambda x: jnp.take(x, permutation, axis=0).reshape(
                 self.cfg.num_minibatches, -1, *x.shape[1:]
             ),
-            flat,
+            batch,
         )
-
-        minibatch_keys = jax.random.split(minibatch_key, self.cfg.num_minibatches)
 
         state, (
             actor_loss,
             critic_loss,
             (entropy, approximate_kl, clip_fraction),
         ) = jax.lax.scan(
-            self._update_minibatch,
+            self.update_minibatch,
             state,
-            (minibatches, minibatch_keys),
+            minibatches,
         )
 
         metrics = jax.tree.map(
@@ -328,25 +303,28 @@ class PPO:
             (actor_loss, critic_loss, entropy, approximate_kl, clip_fraction),
         )
 
-        return (state, transitions), metrics
+        return (state, initial_actor_carry, initial_critic_carry, transitions), metrics
 
-    def _update_step(self, state: PPOState, key: Key) -> tuple[PPOState, None]:
+    def update_step(self, state: PPOState, key: Key) -> tuple[PPOState, None]:
         step_key, epoch_key = jax.random.split(key)
+
+        initial_actor_carry = state.actor_carry
+        initial_critic_carry = state.critic_carry
 
         step_keys = jax.random.split(step_key, self.cfg.num_steps)
         state, transitions = jax.lax.scan(
-            partial(self._step, policy=self._stochastic_action),
+            partial(self.rollout, temperature=1.0),
             state,
             step_keys,
         )
 
-        _, value = self._apply(
+        _, value = self.apply(
             self.critic_network, state.critic_params, state.critic_carry, state.timestep
         )
         value = jnp.squeeze(value, axis=-1)
 
         _, advantages = jax.lax.scan(
-            self._generalized_advantage_estimation,
+            self.generalized_advantage_estimation,
             (jnp.zeros_like(value), value),
             transitions,
             reverse=True,
@@ -360,9 +338,9 @@ class PPO:
         transitions = jax.tree.map(lambda x: jnp.swapaxes(x, 0, 1), transitions)
 
         epoch_keys = jax.random.split(epoch_key, self.cfg.update_epochs)
-        (state, transitions), metrics = jax.lax.scan(
-            self._update_epoch,
-            (state, transitions),
+        (state, *_), metrics = jax.lax.scan(
+            self.update_epoch,
+            (state, initial_actor_carry, initial_critic_carry, transitions),
             epoch_keys,
         )
 
@@ -399,23 +377,22 @@ class PPO:
         done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
-        single_actor_carry = self.actor_network.initialize_carry(actor_carry_key)
-        single_critic_carry = self.critic_network.initialize_carry(critic_carry_key)
+        actor_carry = self.actor_network.initialize_carry(actor_carry_key)
+        critic_carry = self.critic_network.initialize_carry(critic_carry_key)
         actor_carry = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            single_actor_carry,
+            actor_carry,
         )
         critic_carry = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            single_critic_carry,
+            critic_carry,
         )
 
-        single_timestep = jax.tree.map(lambda x: x[0], timestep)
         actor_params = self.actor_network.init(
-            actor_key, single_actor_carry, *single_timestep
+            actor_key, actor_carry, *jax.tree.map(lambda x: x[0], timestep)
         )
         critic_params = self.critic_network.init(
-            critic_key, single_critic_carry, *single_timestep
+            critic_key, critic_carry, *jax.tree.map(lambda x: x[0], timestep)
         )
 
         actor_optimizer_state = self.actor_optimizer.init(actor_params)
@@ -442,7 +419,7 @@ class PPO:
             key, num_steps // (self.cfg.num_steps * self.cfg.num_envs)
         )
         state, _ = jax.lax.scan(
-            self._update_step,
+            self.update_step,
             state,
             keys,
         )
@@ -454,7 +431,6 @@ class PPO:
         key: Key,
         state: PPOState,
         num_steps: int,
-        deterministic: bool = True,
     ) -> PPOState:
         reset_key, actor_carry_key, critic_carry_key, eval_key = jax.random.split(
             key, 4
@@ -472,25 +448,24 @@ class PPO:
         done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
-        single_actor_carry = self.actor_network.initialize_carry(actor_carry_key)
-        single_critic_carry = self.critic_network.initialize_carry(critic_carry_key)
+        actor_carry = self.actor_network.initialize_carry(actor_carry_key)
+        critic_carry = self.critic_network.initialize_carry(critic_carry_key)
         state = state.replace(
             timestep=timestep,
             actor_carry=jax.tree.map(
                 lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-                single_actor_carry,
+                actor_carry,
             ),
             critic_carry=jax.tree.map(
                 lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-                single_critic_carry,
+                critic_carry,
             ),
             env_state=env_state,
         )
 
-        policy = self._deterministic_action if deterministic else self._stochastic_action
         step_keys = jax.random.split(eval_key, num_steps)
         state, _ = jax.lax.scan(
-            partial(self._step, policy=policy),
+            partial(self.rollout, temperature=0.0),
             state,
             step_keys,
         )

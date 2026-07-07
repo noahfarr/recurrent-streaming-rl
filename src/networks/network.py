@@ -16,12 +16,11 @@ class Network(nn.Module):
     head: Callable = identity
 
     @nn.compact
-    def __call__(self, carry, obs, action, reward, done):
+    def __call__(self, carry, obs, action, reward, done, **kwargs):
         x = self.feature_extractor(obs, action, reward, done)
-        if self.cell is None:
-            return carry, self.head(x)
-        carry, x = self.cell(carry, x, done=done)
-        return carry, self.head(x)
+        if self.cell is not None:
+            carry, x = self.cell(carry, x, done=done)
+        return carry, self.head(x, action=action, reward=reward, done=done, **kwargs)
 
     @nn.nowrap
     def initialize_carry(self, key: Key, input_shape: tuple = ()) -> Carry:

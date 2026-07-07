@@ -1,10 +1,9 @@
 # @package _global_
-
 defaults:
-  - override /algorithm: ppo
+  - override /algorithm: fast_sac
   - override /mode: bptt
   - override /cell: rtu
-  - override /logger: [dashboard,wandb]
+  - override /logger: [wandb]
 
 num_seeds: 1
 deterministic: false

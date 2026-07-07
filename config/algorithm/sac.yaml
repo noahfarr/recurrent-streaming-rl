@@ -1,0 +1,30 @@
+# @package _global_
+defaults:
+  - /optimizer@actor_optimizer: adam
+  - /optimizer@critic_optimizer: adam
+  - /optimizer@alpha_optimizer: adam
+  - _self_
+
+algorithm:
+  _target_: src.algorithms.sac.SACConfig
+  num_envs: 1
+  gamma: 0.99
+  tau: 0.005
+  train_frequency: 1
+  target_update_frequency: 1
+  target_entropy_scale: 1.0
+  batch_size: 256
+  buffer_size: 1_000_000
+  sequence_length: 8
+  gradient_steps: 1
+  num_critics: 2
+
+actor_optimizer:
+  name: actor_optimizer
+  lr: 3e-4
+critic_optimizer:
+  name: critic_optimizer
+  lr: 3e-4
+alpha_optimizer:
+  name: alpha_optimizer
+  lr: 3e-4
