@@ -2,13 +2,8 @@ import jax
 import jax.numpy as jnp
 from flax import linen as nn
 
+from src.utils.axes import broadcast_done
 from src.utils.typing import Array, Carry, Key
-
-
-def broadcast_done(done: Array, leaf: Array) -> Array:
-    while done.ndim != leaf.ndim:
-        done = done[..., None]
-    return done
 
 
 def reset_carry(done: Array, carry: Carry, initial_carry: Carry) -> Carry:

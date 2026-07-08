@@ -20,15 +20,10 @@ from streamlet.utils.typing import (
 )
 
 from src.cells import RTRL
-from src.utils.axes import add_time_axis
+from src.utils.axes import add_time_axis, broadcast_done
 from src.utils.distributional import categorical_projection
 from src.utils.typing import Carry
 from src.utils.update import periodic_incremental_update
-
-
-def broadcast_done(done: Array, leaf: Array) -> Array:
-    return done.reshape(done.shape + (1,) * (leaf.ndim - done.ndim))
-
 
 @struct.dataclass(frozen=True)
 class FastSACConfig:
@@ -217,7 +212,8 @@ class FastSAC:
             critic_target_params=critic_target_params,
             critic_optimizer_state=critic_optimizer_state,
         )
-        return state, {"critic/loss": critic_loss, "critic/q": qs.mean()}
+        lox.log({"critic/loss": critic_loss, "critic/q": qs.mean()})
+        return state
 
     def update_actor(self, key, state, experience, actor_carry, critic_carry):
         first = experience.first
@@ -259,7 +255,8 @@ class FastSAC:
         state = state.replace(
             actor_params=actor_params, actor_optimizer_state=actor_optimizer_state
         )
-        return state, {"actor/loss": actor_loss, "actor/entropy": -log_probs.mean()}
+        lox.log({"actor/loss": actor_loss, "actor/entropy": -log_probs.mean()})
+        return state
 
     def update_alpha(self, key, state, experience, actor_carry):
         first = experience.first
@@ -285,9 +282,10 @@ class FastSAC:
         state = state.replace(
             alpha_params=alpha_params, alpha_optimizer_state=alpha_optimizer_state
         )
-        return state, {"alpha/loss": alpha_loss, "alpha/value": alpha}
+        lox.log({"alpha/loss": alpha_loss, "alpha/value": alpha})
+        return state
 
-    def update(self, key: Key, state: FastSACState):
+    def update(self, key: Key, state: FastSACState) -> tuple[FastSACState, None]:
         sample_key, critic_key, actor_key, alpha_key = jax.random.split(key, 4)
         experience = self.buffer.sample(state.buffer_state, sample_key).experience
 
@@ -301,16 +299,14 @@ class FastSAC:
         )
         target_carry = critic_carry
 
-        state, critic_metrics = self.update_critic(
+        state = self.update_critic(
             critic_key, state, experience, actor_carry, critic_carry, target_carry
         )
-        state, actor_metrics = self.update_actor(
+        state = self.update_actor(
             actor_key, state, experience, actor_carry, critic_carry
         )
-        state, alpha_metrics = self.update_alpha(
-            alpha_key, state, experience, actor_carry
-        )
-        return state, {**critic_metrics, **actor_metrics, **alpha_metrics}
+        state = self.update_alpha(alpha_key, state, experience, actor_carry)
+        return state, None
 
     def warmup(self, key: Key, state: FastSACState, num_steps: int) -> FastSACState:
         step_keys = jax.random.split(key, num_steps // self.cfg.num_envs)
@@ -330,10 +326,9 @@ class FastSAC:
         )
 
         gradient_keys = jax.random.split(gradient_key, self.cfg.gradient_steps)
-        state, metrics = jax.lax.scan(
+        state, _ = jax.lax.scan(
             lambda state, key: self.update(key, state), state, gradient_keys
         )
-        lox.log(jax.tree.map(lambda x: x.mean(), metrics))
 
         return state.replace(update_step=state.update_step + 1), None
 

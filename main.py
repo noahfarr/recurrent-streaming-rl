@@ -73,6 +73,12 @@ def main(cfg):
         steps = jnp.array([epoch, epoch + 1]) * num_steps
         logger.log(data, steps=steps)
 
+        logger.log_artifact(
+            state.actor_params,
+            epoch,
+            metrics={"episode_returns": float(jnp.nanmean(episode_returns))},
+        )
+
     logger.finish()
 
 
