@@ -334,26 +334,26 @@ class SAC:
 
         actor_carry = self.actor_network.initialize_carry(actor_carry_key)
         critic_carry = self.critic_network.initialize_carry(critic_carry_key)
-        actor_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            actor_carry,
-        )
-        critic_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            critic_carry,
-        )
 
+        single_timestep = jax.tree.map(lambda x: x[0], timestep)
         actor_params = self.actor_network.init(
-            actor_key, actor_carry, *jax.tree.map(lambda x: x[0], timestep)
+            actor_key, actor_carry, *single_timestep
         )
         critic_params = self.critic_network.init(
-            critic_key, critic_carry, *jax.tree.map(lambda x: x[0], timestep)
+            critic_key, critic_carry, *single_timestep
         )
         alpha_params = self.alpha_network.init(alpha_key)
 
         actor_optimizer_state = self.actor_optimizer.init(actor_params)
         critic_optimizer_state = self.critic_optimizer.init(critic_params)
         alpha_optimizer_state = self.alpha_optimizer.init(alpha_params)
+
+        actor_carry = jax.tree.map(
+            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)), actor_carry
+        )
+        critic_carry = jax.tree.map(
+            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)), critic_carry
+        )
 
         buffer_state = self.buffer.init(
             Transition(first=single_timestep, second=single_timestep)
