@@ -44,10 +44,13 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=lambda x, **kwargs: heads.SquashedGaussian(
-            action_dim=action_dim,
-            kernel_init=nn.initializers.orthogonal(0.01),
-        )(heads.Projection(features=256)(x), **kwargs),
+        head=heads.Projection(
+            features=256,
+            head=heads.SquashedGaussian(
+                action_dim=action_dim,
+                kernel_init=nn.initializers.orthogonal(0.01),
+            ),
+        ),
     )
 
     num_critics = cfg.algorithm.num_critics

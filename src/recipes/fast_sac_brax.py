@@ -51,7 +51,7 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.project(
+        head=heads.Projection(
             features=HIDDEN,
             activation_fn=normalized_tanh,
             head=heads.SquashedGaussian(
@@ -68,7 +68,7 @@ def make(cfg):
     critic_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.project(
+        head=heads.Projection(
             features=HIDDEN,
             activation_fn=normalized_tanh,
             head=lambda x, **kwargs: nn.vmap(

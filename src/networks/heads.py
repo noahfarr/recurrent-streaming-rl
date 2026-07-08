@@ -5,36 +5,24 @@ import flax.linen as nn
 import jax.numpy as jnp
 from flax.linen.initializers import constant
 
+from src.utils.identity import identity
 from src.utils.typing import Array
 
 
 class Projection(nn.Module):
     features: int
+    head: Callable = identity
     kernel_init: nn.initializers.Initializer = nn.initializers.orthogonal(jnp.sqrt(2))
     bias_init: nn.initializers.Initializer = nn.initializers.constant(0.0)
     activation_fn: Callable = nn.tanh
 
     @nn.compact
-    def __call__(self, x: Array) -> Array:
+    def __call__(self, x: Array, **kwargs) -> Array:
         x = nn.Dense(
             self.features, kernel_init=self.kernel_init, bias_init=self.bias_init
         )(x)
-        return self.activation_fn(x)
-
-
-def project(
-    features: int,
-    head: Callable,
-    kernel_init: nn.initializers.Initializer = nn.initializers.orthogonal(jnp.sqrt(2)),
-    bias_init: nn.initializers.Initializer = nn.initializers.constant(0.0),
-    activation_fn: Callable = nn.tanh,
-) -> Callable:
-    return lambda x, **kwargs: head(
-        Projection(
-            features, kernel_init=kernel_init, bias_init=bias_init, activation_fn=activation_fn
-        )(x),
-        **kwargs,
-    )
+        x = self.activation_fn(x)
+        return self.head(x, **kwargs)
 
 
 class QNetwork(nn.Module):

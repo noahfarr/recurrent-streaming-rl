@@ -38,7 +38,7 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.project(
+        head=heads.Projection(
             features=64,
             head=heads.Gaussian(
                 action_dim=env.action_space(env_params).shape[0],
@@ -49,7 +49,7 @@ def make(cfg):
     critic_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.project(
+        head=heads.Projection(
             features=64,
             head=heads.VNetwork(kernel_init=nn.initializers.orthogonal(1.0)),
         ),
