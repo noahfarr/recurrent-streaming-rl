@@ -47,7 +47,7 @@ def make(cfg):
     q_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=heads.DiscreteQNetwork(
+        head=heads.QNetwork(
             action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
         ),
     )

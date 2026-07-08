@@ -16,20 +16,8 @@ from src.networks.feature_extractor import FeatureExtractor
 HIDDEN = 256
 
 
-class ProjectedHead(nn.Module):
-    features: int
-    head: nn.Module
-
-    @nn.compact
-    def __call__(self, x, **kwargs):
-        x = nn.Dense(
-            self.features,
-            kernel_init=nn.initializers.orthogonal(jnp.sqrt(2)),
-            bias_init=nn.initializers.constant(0.0),
-        )(x)
-        x = nn.LayerNorm()(x)
-        x = nn.tanh(x)
-        return self.head(x, **kwargs)
+def normalized_tanh(x):
+    return nn.tanh(nn.LayerNorm()(x))
 
 
 def make(cfg):
@@ -63,8 +51,9 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
+        head=heads.project(
             features=HIDDEN,
+            activation_fn=normalized_tanh,
             head=heads.SquashedGaussian(
                 action_dim=action_dim,
                 kernel_init=nn.initializers.orthogonal(0.01),
@@ -79,10 +68,11 @@ def make(cfg):
     critic_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
+        head=heads.project(
             features=HIDDEN,
+            activation_fn=normalized_tanh,
             head=lambda x, **kwargs: nn.vmap(
-                heads.DistributionalContinuousQNetwork,
+                heads.C51,
                 variable_axes={"params": 0},
                 split_rngs={"params": True},
                 in_axes=(None, None),

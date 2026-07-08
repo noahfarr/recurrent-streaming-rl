@@ -13,21 +13,6 @@ from src.networks import build_cell, heads, infer_feature_dim
 from src.networks.network import Network
 
 
-class ProjectedHead(nn.Module):
-    features: int
-    head: nn.Module
-
-    @nn.compact
-    def __call__(self, x, **kwargs):
-        x = nn.Dense(
-            self.features,
-            kernel_init=nn.initializers.orthogonal(jnp.sqrt(2)),
-            bias_init=nn.initializers.constant(0.0),
-        )(x)
-        x = nn.tanh(x)
-        return self.head(x, **kwargs)
-
-
 def make(cfg):
     env, env_params = environment.make(**cfg.environment)
     env = ClipActionWrapper(env, low=-2.0, high=2.0)
@@ -53,7 +38,7 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
+        head=heads.project(
             features=64,
             head=heads.Gaussian(
                 action_dim=env.action_space(env_params).shape[0],
@@ -64,7 +49,7 @@ def make(cfg):
     critic_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
+        head=heads.project(
             features=64,
             head=heads.VNetwork(kernel_init=nn.initializers.orthogonal(1.0)),
         ),

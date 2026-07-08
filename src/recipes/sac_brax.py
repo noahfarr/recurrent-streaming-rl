@@ -13,23 +13,6 @@ from src.environments.wrappers import ClipActionWrapper
 from src.networks import Network, build_cell, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 
-HIDDEN = 256
-
-
-class ProjectedHead(nn.Module):
-    features: int
-    head: nn.Module
-
-    @nn.compact
-    def __call__(self, x, **kwargs):
-        x = nn.Dense(
-            self.features,
-            kernel_init=nn.initializers.orthogonal(jnp.sqrt(2)),
-            bias_init=nn.initializers.constant(0.0),
-        )(x)
-        x = nn.tanh(x)
-        return self.head(x, **kwargs)
-
 
 def make(cfg):
     env, env_params = environment.make(**cfg.environment)
@@ -40,7 +23,7 @@ def make(cfg):
     feature_extractor = FeatureExtractor(
         observation_extractor=lambda obs: nn.Sequential(
             (
-                nn.Dense(HIDDEN, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
+                nn.Dense(256, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
                 nn.relu,
             )
         )(obs),
@@ -61,13 +44,10 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
-            features=HIDDEN,
-            head=heads.SquashedGaussian(
-                action_dim=action_dim,
-                kernel_init=nn.initializers.orthogonal(0.01),
-            ),
-        ),
+        head=lambda x, **kwargs: heads.SquashedGaussian(
+            action_dim=action_dim,
+            kernel_init=nn.initializers.orthogonal(0.01),
+        )(heads.Projection(features=256)(x), **kwargs),
     )
 
     num_critics = cfg.algorithm.num_critics
@@ -75,16 +55,18 @@ def make(cfg):
     critic_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
-            features=HIDDEN,
-            head=lambda x, **kwargs: nn.vmap(
-                heads.ContinuousQNetwork,
+        head=lambda x, **kwargs: jnp.squeeze(
+            nn.vmap(
+                heads.QNetwork,
                 variable_axes={"params": 0},
                 split_rngs={"params": True},
-                in_axes=(None, None),
+                in_axes=None,
                 out_axes=-1,
                 axis_size=num_critics,
-            )(kernel_init=nn.initializers.orthogonal(1.0))(x, kwargs["action"]),
+            )(action_dim=1, kernel_init=nn.initializers.orthogonal(1.0))(
+                heads.Projection(features=256)(x)
+            ),
+            axis=-2,
         ),
     )
 

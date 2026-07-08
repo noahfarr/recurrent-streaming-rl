@@ -14,23 +14,6 @@ from src.networks import build_cell, heads, infer_feature_dim
 from src.networks.network import Network
 
 
-class ProjectedHead(nn.Module):
-    """Projects the torso output before the final head (post-cell block)."""
-
-    features: int
-    head: nn.Module
-
-    @nn.compact
-    def __call__(self, x, **kwargs):
-        x = nn.Dense(
-            self.features,
-            kernel_init=sparse(sparsity=0.9),
-            bias_init=nn.initializers.constant(0.0),
-        )(x)
-        x = nn.tanh(x)
-        return self.head(x, **kwargs)
-
-
 def make(cfg):
     env, env_params = environment.make(**cfg.environment)
     env = ClipActionWrapper(env)
@@ -58,8 +41,9 @@ def make(cfg):
     actor_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
+        head=heads.project(
             features=64,
+            kernel_init=sparse(sparsity=0.9),
             head=heads.Gaussian(
                 action_dim=action_dim,
                 kernel_init=nn.initializers.orthogonal(0.01),
@@ -70,8 +54,9 @@ def make(cfg):
     critic_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
-        head=ProjectedHead(
+        head=heads.project(
             features=64,
+            kernel_init=sparse(sparsity=0.9),
             head=heads.VNetwork(
                 kernel_init=nn.initializers.orthogonal(1.0),
                 bias_init=nn.initializers.constant(0.0),
