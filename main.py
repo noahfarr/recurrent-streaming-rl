@@ -74,7 +74,7 @@ def main(cfg):
         logger.log(data, steps=steps)
 
         logger.log_artifact(
-            state.actor_params,
+            algorithm.policy_params(state),
             epoch,
             metrics={"episode_returns": float(jnp.nanmean(episode_returns))},
         )

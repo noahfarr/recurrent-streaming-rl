@@ -4,13 +4,13 @@ from src.recipes import (
     ac_lambda_brax,
     ac_lambda_bsuite,
     ac_lambda_popgymnax,
+    fast_sac_brax,
     ppo_brax,
     ppo_popgymnax,
     q_lambda_popgymnax,
     qrc_lambda_bsuite,
     qrc_lambda_popgymnax,
     sac_brax,
-    fast_sac_brax,
 )
 
 register = {
@@ -32,3 +32,18 @@ def make(cfg):
     name = HydraConfig.get().runtime.choices["algorithm"]
     key = (name, suite)
     return register[key](cfg)
+
+
+def policy_params(state):
+    name = HydraConfig.get().runtime.choices["algorithm"]
+    return getattr(
+        state,
+        {
+            "ppo": "actor_params",
+            "sac": "actor_params",
+            "fast_sac": "actor_params",
+            "ac_lambda": "actor_params",
+            "q_lambda": "q_params",
+            "qrc_lambda": "q_params",
+        }[name],
+    )
