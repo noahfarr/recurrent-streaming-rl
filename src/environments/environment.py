@@ -2,20 +2,20 @@ from hydra.utils import instantiate
 from streamlet.environments import environment
 from streamlet.environments.wrappers import RecordEpisodeStatistics
 
-from src.environments import popgymnax
-from src.environments.wrappers import MaskObservationWrapper
+from src.environments import brax, popgymnax
+
+registry = {
+    "popgymnax": popgymnax.make,
+    "brax": brax.make,
+}
 
 
 def make(namespace, env_id, **kwargs):
     env_kwargs = dict(kwargs.get("kwargs") or {})
-    mode = env_kwargs.pop("mode", None)
-    if namespace == "popgymnax":
-        env, env_params = popgymnax.make(env_id, **env_kwargs)
-    else:
-        env, env_params = environment.make(f"{namespace}::{env_id}", **env_kwargs)
-
-    if mode in ("P", "V"):
-        env = MaskObservationWrapper(env, mode)
+    env, env_params = registry.get(
+        namespace,
+        lambda env_id, **kw: environment.make(f"{namespace}::{env_id}", **kw),
+    )(env_id, **env_kwargs)
 
     if env_params is not None:
         env_params = env_params.replace(**(kwargs.get("env_params") or {}))
