@@ -10,9 +10,12 @@ max_runtime_minutes: 720
 n_cpus: 2
 mem: 8000
 
-bash_setup_command: "source $HOME/streaming-rl-in-big-worlds/.venv/bin/activate"
+bash_setup_command: "source $HOME/recurrent-streaming-rl/.venv/bin/activate"
 
-sbatch_arguments: "--output=logs/stdout-%a --error=logs/stderr-%a --exclude=dgx-station"
+sbatch_arguments:
+  - "--output=logs/stdout-%a"
+  - "--error=logs/stderr-%a"
+  - "--exclude=dgx-station"
 
 env:
   PYTHONUNBUFFERED: "1"

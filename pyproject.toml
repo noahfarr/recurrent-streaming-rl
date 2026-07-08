@@ -10,6 +10,7 @@ dependencies = [
     "distrax>=0.1.5",
     "flashbax>=0.1.3",
     "hydra-core>=1.3.2",
+    "hydra-slurmpilot-launcher",
     "omegaconf>=2.3.0",
 ]
 
@@ -20,6 +21,8 @@ override-dependencies = ["lox"]
 lox = { git = "https://github.com/huterguier/lox", branch = "dev" }
 popgymnax = { git = "https://github.com/noahfarr/popgymnax.git" }
 streamlet = { git = "ssh://git@github.com/noahfarr/streamlet.git" }
+hydra-slurmpilot-launcher = { git = "ssh://git@github.com/noahfarr/hydra-slurmpilot-launcher.git" }
+slurmpilot = { git = "https://github.com/noahfarr/slurmpilot.git", branch = "feat/spignore" }
 
 [tool.setuptools.packages.find]
 include = ["src*"]
