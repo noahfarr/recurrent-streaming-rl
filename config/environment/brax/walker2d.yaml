@@ -3,6 +3,6 @@ suite: brax
 env_id: walker2d
 kwargs:
   mode: F
-  backend: positional
+  backend: mjx
 env_params:
   max_steps_in_episode: 1000

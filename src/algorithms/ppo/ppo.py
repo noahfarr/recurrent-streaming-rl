@@ -358,6 +358,14 @@ class PPO:
 
         actor_carry = self.actor_network.initialize_carry(actor_carry_key)
         critic_carry = self.critic_network.initialize_carry(critic_carry_key)
+
+        actor_params = self.actor_network.init(
+            actor_key, actor_carry, *jax.tree.map(lambda x: x[0], timestep)
+        )
+        critic_params = self.critic_network.init(
+            critic_key, critic_carry, *jax.tree.map(lambda x: x[0], timestep)
+        )
+
         actor_carry = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
             actor_carry,
@@ -365,13 +373,6 @@ class PPO:
         critic_carry = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
             critic_carry,
-        )
-
-        actor_params = self.actor_network.init(
-            actor_key, actor_carry, *jax.tree.map(lambda x: x[0], timestep)
-        )
-        critic_params = self.critic_network.init(
-            critic_key, critic_carry, *jax.tree.map(lambda x: x[0], timestep)
         )
 
         actor_optimizer_state = self.actor_optimizer.init(actor_params)

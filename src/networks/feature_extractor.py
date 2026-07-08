@@ -26,9 +26,9 @@ class FeatureExtractor(nn.Module):
     def __call__(
         self,
         observation: Array,
-        action: Array,
-        reward: Array,
-        done: Array,
+        action: Array | None = None,
+        reward: Array | None = None,
+        done: Array | None = None,
         **kwargs,
     ) -> tuple[Array, dict]:
         embeddings = {"observation_embedding": self.observation_extractor(observation)}

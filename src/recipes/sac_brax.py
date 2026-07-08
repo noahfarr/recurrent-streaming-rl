@@ -11,6 +11,7 @@ from src.algorithms.sac import SAC
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
 from src.networks import Network, build_cell, heads, infer_feature_dim
+from src.networks.feature_extractor import FeatureExtractor
 
 HIDDEN = 256
 
@@ -36,12 +37,15 @@ def make(cfg):
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
-    feature_extractor = lambda obs, action, reward, done: nn.Sequential(
-        (
-            nn.Dense(HIDDEN, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
-            nn.relu,
-        )
-    )(obs)
+    feature_extractor = FeatureExtractor(
+        observation_extractor=lambda obs: nn.Sequential(
+            (
+                nn.Dense(HIDDEN, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
+                nn.relu,
+            )
+        )(obs),
+        action_extractor=lambda action: action,
+    )
 
     feature_dim = infer_feature_dim(
         feature_extractor,
