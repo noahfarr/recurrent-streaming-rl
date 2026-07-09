@@ -33,10 +33,6 @@ def launch(overrides, run_dir):
     return json.loads((Path(run_dir) / "result.json").read_text())
 
 
-def run_trial(overrides, run_dir):
-    return launch(overrides, run_dir)
-
-
 def record_observation(path, hyperparameters, score, cost, is_failure):
     record = {
         "hyperparameters": hyperparameters,
@@ -89,7 +85,7 @@ def main(cfg):
     inflight = {}
     launched = completed = 0
     best_value = best_params = None
-    groups = {}
+    resample_groups = {}
 
     while completed < num_trials:
         while len(inflight) < num_jobs and launched < num_trials:
@@ -100,7 +96,7 @@ def main(cfg):
                 + [f"{k}={v}" for k, v in hyperparameters.items()]
                 + [f"seed={launched}"]
             )
-            job = executor.submit(run_trial, overrides, str(run_dir))
+            job = executor.submit(launch, overrides, str(run_dir))
             inflight[job.job_id] = (
                 job,
                 suggestion_id,
@@ -123,18 +119,19 @@ def main(cfg):
                 optimizer.observe(suggestion_id, hyperparameters, score, cost)
                 record_observation(checkpoint, hyperparameters, score, cost, False)
                 key = json.dumps(hyperparameters, sort_keys=True, default=float)
-                group = groups.setdefault(
+                entry = resample_groups.setdefault(
                     key, {"params": hyperparameters, "scores": []}
                 )
-                group["scores"].append(score)
+                entry["scores"].append(score)
                 best = max(
-                    groups.values(),
-                    key=lambda g: sum(g["scores"]) / len(g["scores"]),
+                    resample_groups.values(),
+                    key=lambda e: sum(e["scores"]) / len(e["scores"]),
                 )
                 best_value = sum(best["scores"]) / len(best["scores"])
                 best_params = best["params"]
                 save_results(output_dir, best_value, best_params)
             except Exception:
+                logger.exception("trial with hyperparameters %s failed", hyperparameters)
                 cost = time.monotonic() - start_time
                 optimizer.observe(
                     suggestion_id, hyperparameters, 0.0, cost, is_failure=True
