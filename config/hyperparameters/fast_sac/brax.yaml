@@ -1,4 +1,0 @@
-# @package _global_
-total_timesteps: 2_000_000
-num_epochs: 20
-learning_starts: 5000

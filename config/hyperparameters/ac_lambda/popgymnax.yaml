@@ -5,9 +5,11 @@ algorithm:
   entropy_coefficient: 0.095
 
 actor_optimizer:
-  kappa: 3.0
+  cfg:
+    kappa: 3.0
 critic_optimizer:
-  kappa: 2.0
+  cfg:
+    kappa: 2.0
 
 total_timesteps: 5_000_000
 num_epochs: 25

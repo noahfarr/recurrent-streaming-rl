@@ -13,9 +13,11 @@ algorithm:
 
 actor_optimizer:
   name: actor_optimizer
-  lr: 1.0
-  kappa: 1.5
+  cfg:
+    lr: 1.0
+    kappa: 1.5
 critic_optimizer:
   name: critic_optimizer
-  lr: 1.0
-  kappa: 1.0
+  cfg:
+    lr: 1.0
+    kappa: 1.0

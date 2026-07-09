@@ -1,14 +1,5 @@
 import optax
-from streamlet.optimizers import ObGD, ObGDConfig, OptaxOptimizer
-
-from src.utils.optimizers import inject_logger
-
-
-def obgd(name, lr, kappa, beta2=0.999, eps=1e-8, adaptive=False):
-    return ObGD(
-        cfg=ObGDConfig(lr=lr, kappa=kappa, beta2=beta2, eps=eps, adaptive=adaptive),
-        name=name,
-    )
+from streamlet.optimizers import OptaxOptimizer, inject_logger
 
 
 def sgd(name, lr, max_grad_norm=None):

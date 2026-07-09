@@ -70,6 +70,46 @@ MemoryChain (`gymnax/bsuite/memory_chain`), five POPGym memory tasks
 (`popgymnax/*/easy`), and masked MuJoCo (`brax/*`, mask velocities with
 `environment.kwargs.mode=P` or positions with `V`).
 
+## Hyperparameter sweep
+
+Hydra multirun (above) runs a fixed grid. For actual hyperparameter tuning,
+`scripts/sweep_hyperparameters.py` runs a
+[CARBS](https://github.com/imbue-ai/carbs) (cost-aware Bayesian optimization)
+loop that submits each trial as a `main.py` subprocess via
+[submitit](https://github.com/facebookincubator/submitit), reading back the
+`{score, cost}` pair each run writes to `result.json`:
+
+```bash
+uv sync --extra sweeps  # installs carbs, torch (cpu), submitit
+uv run python scripts/sweep_hyperparameters.py algorithm=qrc_lambda cell=rtu mode=rtrl
+```
+
+The search space and optimizer settings for a given `(algorithm, environment)`
+pair live under `config/sweep/`, resolved with the same cascading fallback as
+`config/hyperparameters/`, e.g. `config/sweep/qrc_lambda/popgymnax.yaml`.
+Trials, the running best (`optimization_results.yaml`), and raw observations
+(`observations.jsonl`) are written under `sweeps/<algorithm>/<environment>/<timestamp>/`.
+Set `sweep.cluster=slurm` (and tune `sweep.executor`) to submit trials to a
+Slurm cluster instead of running them locally. Each trial also runs with the
+wandb logger enabled and is tagged with a `sweep` config field (the sweep's
+own output directory name) so all of a sweep's trials can be pulled back
+from wandb as a unit; `group` is left at its usual meaning (algorithm +
+environment), not repurposed for sweep identity.
+
+`scripts/visualize_hyperparameters.py` is an interactive
+[raylib](https://github.com/electronstudio/raylib-python-cffi) GUI for
+inspecting a sweep's trials: scatter/parallel-coordinates/3D views over
+score, cost, and hyperparameters, per-parameter score correlation,
+score-over-time, and (when reading local files) a PCA-projected GP surrogate
+heatmap. It reads either a local `observations.jsonl` or, useful when trials
+ran on a cluster, a wandb sweep directly via the API (no surrogate view in
+that mode, since it needs the local CARBS search-space config):
+
+```bash
+uv run python scripts/visualize_hyperparameters.py sweeps/qrc_lambda/popgymnax/<timestamp>
+uv run python scripts/visualize_hyperparameters.py --wandb-sweep <timestamp>
+```
+
 ## Repository layout
 
 ```
@@ -81,9 +121,10 @@ src/
 ├── cells/             # RTU cell, RNN wrapper (TBPTT), RTRL wrapper (exact online gradient)
 ├── networks/          # Network composition, feature-extractor/head building blocks
 ├── environments/      # observation/reward/action wrappers
-└── utils/             # profile (SPS), resolvers, typing, initializers
+└── utils/             # profile (SPS), resolvers, typing, initializers, carbs (sweep search-space math)
 
-config/                # hydra: algorithm, environment, cell, mode, hyperparameters, experiment, logger
+config/                # hydra: algorithm, environment, cell, mode, hyperparameters, sweep, experiment, logger
+scripts/               # sweep_hyperparameters.py: CARBS+submitit hyperparameter sweep
 main.py                # entry point
 ```
 

@@ -18,5 +18,5 @@ defaults:
   - mode: bptt
   - logger: default
   - experiment: null
-  - optional hyperparameters: ${cascading_fallback:${algorithm},${environment},${cell}}
+  - optional hyperparameters: ${cascading_fallback:hyperparameters,${algorithm},${environment},${cell}}
 

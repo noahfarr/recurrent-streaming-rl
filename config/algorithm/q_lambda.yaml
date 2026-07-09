@@ -11,8 +11,9 @@ algorithm:
 
 q_optimizer:
   name: q_optimizer
-  lr: 1.0
-  kappa: 1.0
+  cfg:
+    lr: 1.0
+    kappa: 1.0
 
 epsilon_start: 1.0
 epsilon_end: 0.01

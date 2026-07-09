@@ -1,0 +1,8 @@
+defaults:
+  - config
+  - optional sweep: ${cascading_fallback:sweep,${algorithm},${environment},${cell}}
+  - _self_
+
+hydra:
+  run:
+    dir: sweeps/${hydra.runtime.choices.algorithm}/${hydra.runtime.choices.environment}/${now:%Y-%m-%d_%H-%M-%S}

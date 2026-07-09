@@ -14,6 +14,14 @@ dependencies = [
     "omegaconf>=2.3.0",
 ]
 
+[project.optional-dependencies]
+sweeps = [
+    "carbs",
+    "torch",
+    "submitit>=1.5.4",
+    "raylib>=6.0.1.0",
+]
+
 [tool.uv]
 override-dependencies = ["lox"]
 
@@ -23,6 +31,13 @@ popgymnax = { git = "https://github.com/noahfarr/popgymnax.git" }
 streamlet = { git = "ssh://git@github.com/noahfarr/streamlet.git" }
 hydra-slurmpilot-launcher = { git = "ssh://git@github.com/noahfarr/hydra-slurmpilot-launcher.git" }
 slurmpilot = { git = "https://github.com/noahfarr/slurmpilot.git", branch = "feat/spignore" }
+carbs = { git = "https://github.com/imbue-ai/carbs.git" }
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.setuptools.packages.find]
 include = ["src*"]

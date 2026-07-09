@@ -1,7 +1,11 @@
+import json
+from pathlib import Path
+
 import hydra
 import jax
 import jax.numpy as jnp
 import lox
+from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from streamlet.loggers import MultiLogger
@@ -51,10 +55,12 @@ def main(cfg):
         )
 
     train_keys = jax.random.split(train_key, cfg.num_epochs)
+    cost = 0.0
     for epoch in range(cfg.num_epochs):
         (state, logs), SPS = train(
             jax.random.split(train_keys[epoch], cfg.num_seeds), state, num_steps
         )
+        cost += (num_steps * cfg.num_seeds) / SPS
 
         mask = logs.pop("returned_episode")
         episode_returns = jnp.where(mask, logs.pop("returned_episode_returns"), jnp.nan)
@@ -79,7 +85,18 @@ def main(cfg):
             metrics={"episode_returns": float(jnp.nanmean(episode_returns))},
         )
 
+    score = float(jnp.nanmean(episode_returns))
+    cost = float(cost)
+    logger.log_summary(
+        {"score": episode_returns, "cost": jnp.full((cfg.num_seeds,), cost)}
+    )
     logger.finish()
+
+    result = {"score": score, "cost": cost}
+    output_dir = Path(HydraConfig.get().runtime.output_dir)
+    (output_dir / "result.json").write_text(json.dumps(result))
+
+    return result
 
 
 if __name__ == "__main__":

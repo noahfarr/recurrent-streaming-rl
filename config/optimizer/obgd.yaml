@@ -1,7 +1,9 @@
-_target_: src.optimizers.obgd
+_target_: streamlet.optimizers.ObGD
 name: ???
-lr: ???
-kappa: ???
-beta2: 0.999
-eps: 1e-8
-adaptive: false
+cfg:
+  _target_: streamlet.optimizers.ObGDConfig
+  lr: ???
+  kappa: ???
+  beta2: 0.999
+  eps: 1e-8
+  adaptive: false

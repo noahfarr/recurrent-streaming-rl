@@ -19,7 +19,7 @@ def get_action_dim(cfg):
     return action_dim
 
 
-def cascading_fallback(algorithm: str, environment: str, cell=None) -> str:
+def cascading_fallback(group: str, algorithm: str, environment: str, cell=None) -> str:
     gh = GlobalHydra.instance()
     loader = gh.config_loader()
 
@@ -27,11 +27,7 @@ def cascading_fallback(algorithm: str, environment: str, cell=None) -> str:
     while parts:
         parent = "/".join(parts[:-1])
         leaf = parts[-1]
-        search = (
-            f"hyperparameters/{algorithm}/{parent}"
-            if parent
-            else f"hyperparameters/{algorithm}"
-        )
+        search = f"{group}/{algorithm}/{parent}" if parent else f"{group}/{algorithm}"
 
         if cell:
             cell_options = loader.get_group_options(f"{search}/{leaf}")
