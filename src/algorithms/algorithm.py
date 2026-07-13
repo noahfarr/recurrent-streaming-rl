@@ -3,11 +3,15 @@ from hydra.core.hydra_config import HydraConfig
 from src.recipes import (
     ac_lambda_brax,
     ac_lambda_bsuite,
+    ac_lambda_minatar,
     ac_lambda_popgymnax,
     ppo_brax,
+    ppo_minatar,
     ppo_popgymnax,
+    q_lambda_minatar,
     q_lambda_popgymnax,
     qrc_lambda_bsuite,
+    qrc_lambda_minatar,
     qrc_lambda_popgymnax,
     sac_brax,
 )
@@ -15,13 +19,17 @@ from src.recipes import (
 register = {
     ("ppo", "popgymnax"): ppo_popgymnax.make,
     ("ppo", "brax"): ppo_brax.make,
+    ("ppo", "minatar"): ppo_minatar.make,
     ("sac", "brax"): sac_brax.make,
     ("qrc_lambda", "bsuite"): qrc_lambda_bsuite.make,
     ("qrc_lambda", "popgymnax"): qrc_lambda_popgymnax.make,
+    ("qrc_lambda", "minatar"): qrc_lambda_minatar.make,
     ("q_lambda", "popgymnax"): q_lambda_popgymnax.make,
+    ("q_lambda", "minatar"): q_lambda_minatar.make,
     ("ac_lambda", "bsuite"): ac_lambda_bsuite.make,
     ("ac_lambda", "popgymnax"): ac_lambda_popgymnax.make,
     ("ac_lambda", "brax"): ac_lambda_brax.make,
+    ("ac_lambda", "minatar"): ac_lambda_minatar.make,
 }
 
 
