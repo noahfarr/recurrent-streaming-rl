@@ -1,6 +1,6 @@
 # @package loggers.wandb
 _target_: streamlet.loggers.WandbLogger
-project: recurrent-streaming-rl
+project: streaming-rl-in-big-worlds
 name: ${hydra:runtime.choices.algorithm}_${environment.namespace}_${environment.env_id}_${seed}_${now:%Y%m%d_%H%M%S}
 group: ${get_group:}
 mode: online

@@ -1,19 +1,19 @@
 from hydra.core.hydra_config import HydraConfig
 
 from src.recipes import (
-    ac_lambda_brax,
-    ac_lambda_bsuite,
-    ac_lambda_minatar,
-    ac_lambda_popgymnax,
     ppo_brax,
     ppo_minatar,
     ppo_popgymnax,
-    q_lambda_minatar,
-    q_lambda_popgymnax,
-    qrc_lambda_bsuite,
-    qrc_lambda_minatar,
-    qrc_lambda_popgymnax,
+    qrc_bsuite,
+    qrc_minatar,
+    qrc_popgymnax,
     sac_brax,
+    stream_ac_brax,
+    stream_ac_bsuite,
+    stream_ac_minatar,
+    stream_ac_popgymnax,
+    stream_q_minatar,
+    stream_q_popgymnax,
 )
 
 register = {
@@ -21,15 +21,16 @@ register = {
     ("ppo", "brax"): ppo_brax.make,
     ("ppo", "minatar"): ppo_minatar.make,
     ("sac", "brax"): sac_brax.make,
-    ("qrc_lambda", "bsuite"): qrc_lambda_bsuite.make,
-    ("qrc_lambda", "popgymnax"): qrc_lambda_popgymnax.make,
-    ("qrc_lambda", "minatar"): qrc_lambda_minatar.make,
-    ("q_lambda", "popgymnax"): q_lambda_popgymnax.make,
-    ("q_lambda", "minatar"): q_lambda_minatar.make,
-    ("ac_lambda", "bsuite"): ac_lambda_bsuite.make,
-    ("ac_lambda", "popgymnax"): ac_lambda_popgymnax.make,
-    ("ac_lambda", "brax"): ac_lambda_brax.make,
-    ("ac_lambda", "minatar"): ac_lambda_minatar.make,
+    ("qrc", "bsuite"): qrc_bsuite.make,
+    ("qrc", "popgymnax"): qrc_popgymnax.make,
+    ("qrc", "minatar"): qrc_minatar.make,
+    ("stream_q", "popgymnax"): stream_q_popgymnax.make,
+    ("stream_q", "minatar"): stream_q_minatar.make,
+    ("intentional_q", "minatar"): stream_q_minatar.make,
+    ("stream_ac", "bsuite"): stream_ac_bsuite.make,
+    ("stream_ac", "popgymnax"): stream_ac_popgymnax.make,
+    ("stream_ac", "brax"): stream_ac_brax.make,
+    ("stream_ac", "minatar"): stream_ac_minatar.make,
 }
 
 
@@ -47,8 +48,9 @@ def policy_params(state):
         {
             "ppo": "actor_params",
             "sac": "actor_params",
-            "ac_lambda": "actor_params",
-            "q_lambda": "q_params",
-            "qrc_lambda": "q_params",
+            "stream_ac": "actor_params",
+            "stream_q": "q_params",
+            "intentional_q": "q_params",
+            "qrc": "q_params",
         }[name],
     )
