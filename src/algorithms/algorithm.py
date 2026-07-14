@@ -2,6 +2,7 @@ from hydra.core.hydra_config import HydraConfig
 
 from src.recipes import (
     ppo_brax,
+    ppo_classic_control,
     ppo_minatar,
     ppo_popgymnax,
     qrc_bsuite,
@@ -21,6 +22,7 @@ register = {
     ("ppo", "popgymnax"): ppo_popgymnax.make,
     ("ppo", "brax"): ppo_brax.make,
     ("ppo", "minatar"): ppo_minatar.make,
+    ("ppo", "classic_control"): ppo_classic_control.make,
     ("sac", "brax"): sac_brax.make,
     ("qrc", "bsuite"): qrc_bsuite.make,
     ("qrc", "popgymnax"): qrc_popgymnax.make,

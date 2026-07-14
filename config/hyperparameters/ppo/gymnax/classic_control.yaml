@@ -1,0 +1,23 @@
+# @package _global_
+
+total_timesteps: 50_000_000
+num_epochs: 10
+
+algorithm:
+  num_envs: 4096
+  num_steps: 32
+  gae_lambda: 0.95
+  num_minibatches: 8
+  update_epochs: 4
+  normalize_advantage: True
+  clip_coefficient: 0.2
+  clip_value_loss: True
+  entropy_coefficient: 0.0
+
+actor_optimizer:
+  lr: 1e-4
+  max_grad_norm: 0.5
+critic_optimizer:
+  lr: 1e-4
+  max_grad_norm: 0.5
+

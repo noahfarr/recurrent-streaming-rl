@@ -11,7 +11,7 @@ from omegaconf import OmegaConf
 from streamlet.loggers import MultiLogger
 
 from src import algorithm
-from src.utils import profile
+from src.utils import Async, profile
 
 
 @hydra.main(version_base=None, config_path="./config", config_name="config")
@@ -23,7 +23,7 @@ def main(cfg):
 
     logger = MultiLogger(
         [
-            instantiate(v, cfg=config, _recursive_=False, _convert_="all")
+            Async(instantiate(v, cfg=config, _recursive_=False, _convert_="all"))
             for v in (cfg.loggers or {}).values()
         ]
     )
@@ -62,33 +62,55 @@ def main(cfg):
         )
         cost += (num_steps * cfg.num_seeds) / SPS
 
-        mask = logs.pop("returned_episode")
-        episode_returns = jnp.where(mask, logs.pop("returned_episode_returns"), jnp.nan)
-        episode_lengths = jnp.where(mask, logs.pop("returned_episode_lengths"), jnp.nan)
-        discounted_episode_returns = jnp.where(
-            mask, logs.pop("returned_discounted_episode_returns"), jnp.nan
-        )
+        mask = logs.pop("returned_episode").squeeze(-1)
+        returned_episode_returns = logs.pop("returned_episode_returns").squeeze(-1)
+        returned_episode_lengths = logs.pop("returned_episode_lengths").squeeze(-1)
+        returned_discounted_episode_returns = logs.pop(
+            "returned_discounted_episode_returns"
+        ).squeeze(-1)
+
+        episode_returns = [
+            returned_episode_returns[i][mask[i]] for i in range(cfg.num_seeds)
+        ]
+        episode_lengths = [
+            returned_episode_lengths[i][mask[i]] for i in range(cfg.num_seeds)
+        ]
+        discounted_episode_returns = [
+            returned_discounted_episode_returns[i][mask[i]]
+            for i in range(cfg.num_seeds)
+        ]
 
         data = {
-            "training/episode_returns": episode_returns,
-            "training/episode_lengths": episode_lengths,
-            "training/discounted_episode_returns": discounted_episode_returns,
-            "training/SPS": jnp.full_like(episode_returns, SPS),
-            **logs,
+            "training/episode_returns": [r.mean(keepdims=True) for r in episode_returns],
+            "training/episode_lengths": [x.mean(keepdims=True) for x in episode_lengths],
+            "training/discounted_episode_returns": [
+                r.mean(keepdims=True) for r in discounted_episode_returns
+            ],
+            "training/SPS": jnp.full((cfg.num_seeds, 1), SPS),
+            **jax.tree.map(
+                lambda x: jnp.nanmean(
+                    x.reshape(cfg.num_seeds, -1), axis=1, keepdims=True
+                ),
+                logs,
+            ),
         }
+
         steps = jnp.array([epoch, epoch + 1]) * num_steps
         logger.log(data, steps=steps)
 
         logger.log_artifact(
             algorithm.policy_params(state),
             epoch,
-            metrics={"episode_returns": float(jnp.nanmean(episode_returns))},
+            metrics={"episode_returns": jnp.concatenate(episode_returns).mean()},
         )
 
-    score = float(jnp.nanmean(episode_returns))
+    score = float(jnp.concatenate(episode_returns).mean())
     cost = float(cost)
     logger.log_summary(
-        {"score": episode_returns, "cost": jnp.full((cfg.num_seeds,), cost)}
+        {
+            "score": jnp.array([r.mean() for r in episode_returns]),
+            "cost": jnp.full((cfg.num_seeds,), cost),
+        }
     )
     logger.finish()
 
