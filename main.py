@@ -11,7 +11,7 @@ from omegaconf import OmegaConf
 from streamlet.loggers import MultiLogger
 
 from src import algorithm
-from src.utils import Async, profile
+from src.utils import profile
 
 
 @hydra.main(version_base=None, config_path="./config", config_name="config")
@@ -23,7 +23,7 @@ def main(cfg):
 
     logger = MultiLogger(
         [
-            Async(instantiate(v, cfg=config, _recursive_=False, _convert_="all"))
+            instantiate(v, cfg=config, _recursive_=False, _convert_="all")
             for v in (cfg.loggers or {}).values()
         ]
     )
@@ -62,12 +62,16 @@ def main(cfg):
         )
         cost += (num_steps * cfg.num_seeds) / SPS
 
-        mask = logs.pop("returned_episode").squeeze(-1)
-        returned_episode_returns = logs.pop("returned_episode_returns").squeeze(-1)
-        returned_episode_lengths = logs.pop("returned_episode_lengths").squeeze(-1)
+        mask = logs.pop("returned_episode").reshape(cfg.num_seeds, -1)
+        returned_episode_returns = logs.pop("returned_episode_returns").reshape(
+            cfg.num_seeds, -1
+        )
+        returned_episode_lengths = logs.pop("returned_episode_lengths").reshape(
+            cfg.num_seeds, -1
+        )
         returned_discounted_episode_returns = logs.pop(
             "returned_discounted_episode_returns"
-        ).squeeze(-1)
+        ).reshape(cfg.num_seeds, -1)
 
         episode_returns = [
             returned_episode_returns[i][mask[i]] for i in range(cfg.num_seeds)
