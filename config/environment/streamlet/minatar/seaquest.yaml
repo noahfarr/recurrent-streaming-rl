@@ -1,5 +1,5 @@
-namespace: gymnax
+namespace: minatar
 suite: minatar
-env_id: Breakout-MinAtar
+env_id: Seaquest-MinAtar
 env_params:
   max_steps_in_episode: 1000

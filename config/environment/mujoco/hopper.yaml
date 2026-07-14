@@ -1,0 +1,6 @@
+namespace: gymnasium
+suite: mujoco
+env_id: Hopper-v4
+kwargs:
+  batch_shape:
+    - ${num_seeds}

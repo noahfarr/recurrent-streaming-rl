@@ -1,5 +1,5 @@
 # @package hydra.launcher
-partition: gpu
+partition: main
 n_gpus: 1
 env:
   JAX_PLATFORMS: cuda,cpu

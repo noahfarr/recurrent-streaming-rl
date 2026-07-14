@@ -1,0 +1,24 @@
+# @package _global_
+
+defaults:
+  - /optimizer@q_optimizer: adaptive
+  - _self_
+
+algorithm:
+  _target_: streamlet.algorithms.RecurrentQLambdaConfig
+  gamma: 0.99
+  trace_lambda: 0.8
+
+q_optimizer:
+  name: q_optimizer
+  cfg:
+    gamma: ${algorithm.gamma}
+    trace_lambda: ${algorithm.trace_lambda}
+    eta: 4.6e-4
+
+epsilon_start: 1.0
+epsilon_end: 0.01
+epsilon_fraction: 0.1
+
+total_timesteps: 1_000_000
+num_epochs: 50

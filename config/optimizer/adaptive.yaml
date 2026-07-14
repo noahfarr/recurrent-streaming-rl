@@ -1,0 +1,7 @@
+_target_: streamlet.optimizers.Adaptive
+name: ???
+cfg:
+  _target_: streamlet.optimizers.AdaptiveConfig
+  gamma: ???
+  trace_lambda: ???
+  eta: ???

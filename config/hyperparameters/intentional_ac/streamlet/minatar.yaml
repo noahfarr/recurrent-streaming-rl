@@ -1,0 +1,16 @@
+# @package _global_
+
+algorithm:
+  gamma: 0.99
+  trace_lambda: 0.8
+  entropy_coefficient: 0.01
+
+actor_optimizer:
+  cfg:
+    eta: 0.05
+critic_optimizer:
+  cfg:
+    eta: 0.5
+
+total_timesteps: 10_000_000
+num_epochs: 25

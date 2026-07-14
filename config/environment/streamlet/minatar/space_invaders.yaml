@@ -1,0 +1,5 @@
+namespace: minatar
+suite: minatar
+env_id: SpaceInvaders-MinAtar
+env_params:
+  max_steps_in_episode: 1000

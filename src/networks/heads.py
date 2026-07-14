@@ -2,6 +2,7 @@ from typing import Callable
 
 import distrax
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 from flax.linen.initializers import constant
 
@@ -63,14 +64,24 @@ class Gaussian(nn.Module):
     action_dim: int
     kernel_init: nn.initializers.Initializer = nn.initializers.lecun_normal()
     bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
+    state_dependent_std: bool = False
 
     @nn.compact
     def __call__(self, x: Array, **kwargs) -> distrax.Independent:
         mean = nn.Dense(
             self.action_dim, kernel_init=self.kernel_init, bias_init=self.bias_init
         )(x)
-        log_std = self.param("log_std", nn.initializers.zeros, self.action_dim)
-        scale = jnp.broadcast_to(jnp.exp(log_std), mean.shape)
+        if self.state_dependent_std:
+            scale = jax.nn.softplus(
+                nn.Dense(
+                    self.action_dim,
+                    kernel_init=self.kernel_init,
+                    bias_init=self.bias_init,
+                )(x)
+            )
+        else:
+            log_std = self.param("log_std", nn.initializers.zeros, self.action_dim)
+            scale = jnp.broadcast_to(jnp.exp(log_std), mean.shape)
         return distrax.Independent(
             distrax.Normal(loc=mean, scale=scale), reinterpreted_batch_ndims=1
         )

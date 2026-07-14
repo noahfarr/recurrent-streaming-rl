@@ -1,4 +1,4 @@
-namespace: gymnax
+namespace: minatar
 suite: minatar
 env_id: Freeway-MinAtar
 env_params:

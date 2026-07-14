@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - /optimizer@actor_optimizer: intentional
+  - /optimizer@critic_optimizer: intentional
+  - _self_
+
+algorithm:
+  _target_: streamlet.algorithms.RecurrentACLambdaConfig
+  gamma: 0.99
+  trace_lambda: 0.8
+  entropy_coefficient: 0.01
+
+actor_optimizer:
+  name: actor_optimizer
+  cfg:
+    gamma: ${algorithm.gamma}
+    trace_lambda: ${algorithm.trace_lambda}
+    eta: 0.05
+critic_optimizer:
+  name: critic_optimizer
+  cfg:
+    gamma: ${algorithm.gamma}
+    trace_lambda: ${algorithm.trace_lambda}
+    eta: 0.5

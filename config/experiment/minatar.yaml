@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - override /logger: wandb
+
+num_seeds: 16
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      algorithm: stream_q,intentional_q,adaptive_q
+      environment: streamlet/minatar/asterix,streamlet/minatar/breakout,streamlet/minatar/freeway,streamlet/minatar/seaquest,streamlet/minatar/space_invaders

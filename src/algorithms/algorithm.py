@@ -11,6 +11,7 @@ from src.recipes import (
     stream_ac_brax,
     stream_ac_bsuite,
     stream_ac_minatar,
+    stream_ac_mujoco,
     stream_ac_popgymnax,
     stream_q_minatar,
     stream_q_popgymnax,
@@ -27,10 +28,16 @@ register = {
     ("stream_q", "popgymnax"): stream_q_popgymnax.make,
     ("stream_q", "minatar"): stream_q_minatar.make,
     ("intentional_q", "minatar"): stream_q_minatar.make,
+    ("adaptive_q", "minatar"): stream_q_minatar.make,
     ("stream_ac", "bsuite"): stream_ac_bsuite.make,
     ("stream_ac", "popgymnax"): stream_ac_popgymnax.make,
     ("stream_ac", "brax"): stream_ac_brax.make,
     ("stream_ac", "minatar"): stream_ac_minatar.make,
+    ("stream_ac", "mujoco"): stream_ac_mujoco.make,
+    ("intentional_ac", "brax"): stream_ac_brax.make,
+    ("intentional_ac", "minatar"): stream_ac_minatar.make,
+    ("intentional_ac", "mujoco"): stream_ac_mujoco.make,
+    ("adaptive_ac", "minatar"): stream_ac_minatar.make,
 }
 
 
@@ -49,8 +56,11 @@ def policy_params(state):
             "ppo": "actor_params",
             "sac": "actor_params",
             "stream_ac": "actor_params",
+            "intentional_ac": "actor_params",
+            "adaptive_ac": "actor_params",
             "stream_q": "q_params",
             "intentional_q": "q_params",
+            "adaptive_q": "q_params",
             "qrc": "q_params",
         }[name],
     )

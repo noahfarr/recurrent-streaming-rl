@@ -1,0 +1,4 @@
+# @package _global_
+
+total_timesteps: 5_000_000
+num_epochs: 25
