@@ -14,5 +14,5 @@ critic_optimizer:
     lr: 1.0
     kappa: 2.0
 
-total_timesteps: 2_000_000
-num_epochs: 20
+total_timesteps: 20_000_000
+num_epochs: 200

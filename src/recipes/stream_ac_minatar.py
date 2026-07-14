@@ -1,5 +1,4 @@
 import flax.linen as nn
-import jax
 import jax.numpy as jnp
 from hydra.utils import instantiate
 from streamlet.algorithms import RecurrentACLambda
@@ -26,6 +25,12 @@ def make(cfg):
         observation_extractor=nn.Sequential(
             [
                 nn.Conv(16, kernel_size=(3, 3), padding="VALID", kernel_init=sparse(sparsity=0.9)),
+                nn.LayerNorm(
+                    use_bias=False,
+                    use_scale=False,
+                    epsilon=1e-5,
+                    reduction_axes=(-3, -2, -1),
+                ),
                 nn.leaky_relu,
                 Flatten(start_dim=-3, end_dim=-1),
                 nn.Dense(128, kernel_init=sparse(sparsity=0.9)),
@@ -33,8 +38,6 @@ def make(cfg):
                 nn.leaky_relu,
             ]
         ),
-        action_extractor=lambda action: jax.nn.one_hot(action, num_classes=num_actions),
-        reward_extractor=lambda reward: reward[None],
     )
 
     feature_dim = infer_feature_dim(

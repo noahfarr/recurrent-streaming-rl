@@ -2,4 +2,4 @@ namespace: minatar
 suite: minatar
 env_id: Breakout-MinAtar
 env_params:
-  max_steps_in_episode: 1000
+  max_steps_in_episode: -1

@@ -17,6 +17,7 @@ actor_optimizer:
     gamma: ${algorithm.gamma}
     trace_lambda: ${algorithm.trace_lambda}
     eta: 0.05
+    normalize_delta: true
 critic_optimizer:
   name: critic_optimizer
   cfg:

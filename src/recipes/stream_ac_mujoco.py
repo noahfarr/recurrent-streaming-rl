@@ -9,7 +9,7 @@ from streamlet.environments.wrappers import (
 from streamlet.networks import sparse
 
 from src.environments import environment
-from src.environments.wrappers import ClipActionWrapper
+from src.environments.wrappers import ClipActionWrapper, TimeAwareObservationWrapper
 from src.networks import build_cell, heads, infer_feature_dim
 from src.networks.network import Network
 
@@ -19,6 +19,7 @@ def make(cfg):
     env = ClipActionWrapper(env)
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
+    env = TimeAwareObservationWrapper(env, time_limit=1000)
 
     feature_extractor = lambda obs, action, reward, done: nn.Sequential(
         (
