@@ -6,7 +6,6 @@ defaults:
 
 num_seeds: 5
 num_epochs: 25
-deterministic: True
 
 cell:
   config:

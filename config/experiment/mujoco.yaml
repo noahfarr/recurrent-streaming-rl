@@ -1,16 +1,12 @@
 # @package _global_
 defaults:
-  - override /algorithm: stream_ac
-  - override /mode: rtrl
   - override /logger: [wandb]
 
-num_seeds: 1
-deterministic: false
+num_seeds: 16
 
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      seed: 0,1,2,3,4
       algorithm: stream_ac,intentional_ac
       environment: mujoco/ant,mujoco/halfcheetah,mujoco/hopper,mujoco/walker2d,mujoco/humanoid,mujoco/humanoidstandup
