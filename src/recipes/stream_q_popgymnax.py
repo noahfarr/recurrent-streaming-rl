@@ -11,7 +11,7 @@ from streamlet.environments.wrappers import (
 from streamlet.networks import sparse
 
 from src.environments import environment
-from src.networks import build_cell, heads, infer_feature_dim
+from src.networks import Ravel, build_cell, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network
 
@@ -44,12 +44,14 @@ def make(cfg):
 
     cell = build_cell(cfg, input_size=feature_dim)
 
-    q_network = Network(
-        feature_extractor=feature_extractor,
-        cell=cell,
-        head=heads.QNetwork(
-            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
-        ),
+    q_network = Ravel(
+        network=Network(
+            feature_extractor=feature_extractor,
+            cell=cell,
+            head=heads.QNetwork(
+                action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+            ),
+        )
     )
 
     epsilon_schedule = optax.linear_schedule(

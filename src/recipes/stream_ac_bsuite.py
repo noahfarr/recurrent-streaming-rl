@@ -9,7 +9,7 @@ from streamlet.environments.wrappers import (
 from streamlet.networks import sparse
 
 from src.environments import environment
-from src.networks import build_cell, heads, infer_feature_dim
+from src.networks import Ravel, build_cell, heads, infer_feature_dim
 from src.networks.network import Network, SeparateActorCritic
 
 
@@ -63,6 +63,8 @@ def make(cfg):
                 head=critic_head,
             ),
         )
+
+    network = Ravel(network=network)
 
     actor_optimizer = instantiate(cfg.actor_optimizer)
     critic_optimizer = instantiate(cfg.critic_optimizer)
