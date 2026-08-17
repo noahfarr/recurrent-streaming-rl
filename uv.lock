@@ -726,6 +726,25 @@ wheels = [
 ]
 
 [[package]]
+name = "hydra-carbs-sweeper"
+version = "0.1.0"
+source = { directory = "../hydra-carbs-sweeper" }
+dependencies = [
+    { name = "carbs" },
+    { name = "hydra-core" },
+    { name = "numpy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "carbs", git = "https://github.com/imbue-ai/carbs.git" },
+    { name = "hydra-core", specifier = ">=1.3" },
+    { name = "numpy" },
+    { name = "pytest", marker = "extra == 'dev'" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "hydra-core"
 version = "1.3.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1991,6 +2010,7 @@ dependencies = [
 [package.optional-dependencies]
 sweeps = [
     { name = "carbs" },
+    { name = "hydra-carbs-sweeper" },
     { name = "raylib" },
     { name = "submitit" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
@@ -2008,6 +2028,7 @@ requires-dist = [
     { name = "distrax", specifier = ">=0.1.5" },
     { name = "flashbax", specifier = ">=0.1.3" },
     { name = "gymnasium-ffi", git = "https://github.com/noahfarr/gymnasium-ffi.git" },
+    { name = "hydra-carbs-sweeper", marker = "extra == 'sweeps'", directory = "../hydra-carbs-sweeper" },
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "hydra-slurmpilot-launcher", git = "ssh://git@github.com/noahfarr/hydra-slurmpilot-launcher.git" },
     { name = "omegaconf", specifier = ">=2.3.0" },

@@ -1,8 +1,13 @@
 defaults:
   - config
   - optional sweep: ${cascading_fallback:sweep,${algorithm},${environment},${cell}}
+  - override hydra/sweeper: carbs
   - _self_
+
+seed: ${hydra:job.num}
 
 hydra:
   run:
+    dir: sweeps/${hydra.runtime.choices.algorithm}/${hydra.runtime.choices.environment}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
     dir: sweeps/${hydra.runtime.choices.algorithm}/${hydra.runtime.choices.environment}/${now:%Y-%m-%d_%H-%M-%S}
