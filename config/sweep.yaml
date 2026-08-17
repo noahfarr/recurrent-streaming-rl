@@ -1,7 +1,7 @@
 defaults:
   - config
   - optional sweep: ${cascading_fallback:sweep,${algorithm},${environment},${cell}}
-  - override hydra/sweeper: carbs
+  - override hydra/sweeper: optuna_tpe
   - _self_
 
 seed: ${hydra:job.num}

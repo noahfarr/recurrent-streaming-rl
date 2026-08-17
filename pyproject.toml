@@ -17,9 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 sweeps = [
-    "carbs",
-    "hydra-carbs-sweeper",
-    "torch",
+    "hydra-optuna-sweeper==1.4.0.dev8",
     "submitit>=1.5.4",
     "raylib>=6.0.1.0",
 ]
@@ -34,14 +32,6 @@ gymnasium-ffi = { git = "https://github.com/noahfarr/gymnasium-ffi.git" }
 streamlet = { git = "ssh://git@github.com/noahfarr/streamlet.git" }
 hydra-slurmpilot-launcher = { git = "ssh://git@github.com/noahfarr/hydra-slurmpilot-launcher.git" }
 slurmpilot = { git = "https://github.com/noahfarr/slurmpilot.git", branch = "feat/spignore" }
-carbs = { git = "https://github.com/imbue-ai/carbs.git" }
-hydra-carbs-sweeper = { path = "../hydra-carbs-sweeper" }
-torch = { index = "pytorch-cpu" }
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
 
 [tool.setuptools.packages.find]
 include = ["src*"]

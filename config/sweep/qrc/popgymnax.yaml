@@ -1,18 +1,11 @@
 # @package hydra.sweeper
 
-direction: maximize
-n_trials: 64
-n_jobs: 8
-seed: 42
-num_random_samples: 10
-resample_frequency: 5
-max_suggestion_cost: 14400
 params:
-  algorithm.trace_lambda: {distribution: uniform, min: 0.5, max: 0.99}
-  algorithm.regularization_coefficient: {distribution: log_normal, min: 0.1, max: 10.0}
-  q_optimizer.lr: {distribution: log_normal, min: 1.0e-5, max: 1.0e-2}
-  q_optimizer.max_grad_norm: {distribution: log_normal, min: 0.1, max: 10.0}
-  h_optimizer.lr: {distribution: log_normal, min: 1.0e-6, max: 1.0e-3}
-  h_optimizer.max_grad_norm: {distribution: log_normal, min: 0.1, max: 10.0}
-  epsilon_fraction: {distribution: uniform, min: 0.05, max: 0.5}
-  cell.config.hidden_dim: {distribution: uniform_pow2, min: 64, max: 384}
+  algorithm.trace_lambda: interval(0.5, 0.99)
+  algorithm.regularization_coefficient: tag(log, interval(0.1, 10.0))
+  q_optimizer.lr: tag(log, interval(1e-5, 1e-2))
+  q_optimizer.max_grad_norm: tag(log, interval(0.1, 10.0))
+  h_optimizer.lr: tag(log, interval(1e-6, 1e-3))
+  h_optimizer.max_grad_norm: tag(log, interval(0.1, 10.0))
+  epsilon_fraction: interval(0.05, 0.5)
+  cell.config.hidden_dim: choice(64, 128, 256, 384)

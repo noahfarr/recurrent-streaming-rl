@@ -134,7 +134,7 @@ def main(cfg):
     output_dir = Path(HydraConfig.get().runtime.output_dir)
     (output_dir / "result.json").write_text(json.dumps(result))
 
-    return result
+    return score
 
 
 if __name__ == "__main__":
