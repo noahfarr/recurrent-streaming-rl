@@ -1,10 +1,13 @@
 import json
+import math
 from pathlib import Path
 
 import hydra
 import jax
 import jax.numpy as jnp
 import lox
+from jax.sharding import NamedSharding
+from jax.sharding import PartitionSpec as P
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
@@ -30,12 +33,18 @@ def main(cfg):
 
     agent = algorithm.make(cfg)
 
-    init = jax.jit(jax.vmap(agent.init))
+    num_devices = math.gcd(cfg.num_seeds, jax.device_count())
+    mesh = jax.sharding.Mesh(jax.devices()[:num_devices], ("seed",))
+    seeded = NamedSharding(mesh, P("seed"))
+
+    init = jax.jit(jax.vmap(agent.init), out_shardings=seeded)
     train = profile(
         jax.jit(
             jax.vmap(lox.spool(agent.train), in_axes=(0, 0, None)),
             static_argnums=(2,),
             donate_argnums=(1,),
+            in_shardings=(seeded, seeded),
+            out_shardings=(seeded, seeded),
         ),
         num_steps * cfg.num_seeds,
     )
@@ -48,7 +57,10 @@ def main(cfg):
     learning_starts = int(cfg.get("learning_starts", 0) or 0)
     if learning_starts:
         warmup = jax.jit(
-            jax.vmap(agent.warmup, in_axes=(0, 0, None)), static_argnums=(2,)
+            jax.vmap(agent.warmup, in_axes=(0, 0, None)),
+            static_argnums=(2,),
+            in_shardings=(seeded, seeded),
+            out_shardings=seeded,
         )
         state = warmup(
             jax.random.split(warmup_key, cfg.num_seeds), state, learning_starts
