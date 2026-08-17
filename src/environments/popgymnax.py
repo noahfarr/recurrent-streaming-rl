@@ -2,7 +2,6 @@ from typing import Any
 
 from flax import struct
 from gymnax.environments import spaces
-
 from streamlet.environments.wrappers import GymnaxWrapper
 from streamlet.utils.typing import Array, Key
 
@@ -60,7 +59,9 @@ class PopgymnaxWrapper(GymnaxWrapper):
     def reset(self, key: Key, params) -> tuple[Array, Any]:
         return self._env.reset(key, params.env_params)
 
-    def step(self, key: Key, state, action: Array, params) -> tuple[Array, Any, Array, Array, dict]:
+    def step(
+        self, key: Key, state, action: Array, params
+    ) -> tuple[Array, Any, Array, Array, dict]:
         obs, new_state, reward, done, info = self._env.step(
             key, state, action, params.env_params
         )
@@ -77,12 +78,16 @@ class PopgymnaxWrapper(GymnaxWrapper):
 
 
 def make(
-    env_id: str, difficulty: str, **kwargs
+    env_id: str, difficulty: str, num_resets: int | None = None, **kwargs
 ) -> tuple[PopgymnaxWrapper, EnvParams]:
     import popgymnax
 
+    from src.environments.wrappers import PrecomputedResetWrapper
+
     env_id = f"{env_id}{difficulty}"
     env, env_params = popgymnax.make(env_id, **kwargs)
+    if num_resets is not None:
+        env = PrecomputedResetWrapper(env, num_resets=num_resets)
     env = PopgymnaxWrapper(env)
     env_params = EnvParams(
         env_params=env_params, max_steps_in_episode=max_steps_in_episode[env_id]
