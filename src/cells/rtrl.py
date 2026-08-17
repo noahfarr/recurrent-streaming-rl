@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from flax import linen as nn
 from flax import struct
-from src.utils.typing import Array, Carry, PyTree
+from src.utils.typing import Array, Carry
 
 from .rnn import reset_carry
 
@@ -10,7 +10,7 @@ from .rnn import reset_carry
 @struct.dataclass
 class RTRLCarry:
     carry: Carry
-    influence: PyTree
+    influence: Array
 
 
 class RTRL(nn.Module):
@@ -35,12 +35,9 @@ class RTRL(nn.Module):
             carry.carry, inputs
         )
 
-        def update_influence(influence_unit, parameter_jacobian_unit):
-            rotated = self.cell.propagate_influence(state_jacobian, influence_unit)
-            return rotated + parameter_jacobian_unit
-
-        next_influence = jax.tree.map(
-            update_influence, carry.influence, parameter_jacobian
+        next_influence = (
+            self.cell.propagate_influence(state_jacobian, carry.influence)
+            + parameter_jacobian
         )
 
         new_carry = self.cell.inject_influence(new_carry, next_influence)

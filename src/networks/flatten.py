@@ -1,7 +1,9 @@
 from math import prod
 
 import flax.linen as nn
+
 from src.utils.typing import Array
+
 
 class Flatten(nn.Module):
     start_dim: int = 1

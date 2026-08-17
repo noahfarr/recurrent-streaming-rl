@@ -1,3 +1,4 @@
+import math
 from typing import Callable
 
 import jax
@@ -6,7 +7,6 @@ from flax import linen as nn
 from flax import struct
 from flax.linen import RNNCellBase
 from flax.linen.initializers import lecun_normal, zeros_init
-from jax.experimental import sparse
 
 from src.utils.typing import Array
 
@@ -51,6 +51,36 @@ class GRUCell(RNNCellBase):
     def _params(self):
         return tuple(getattr(self, name) for name in _PARAM_NAMES)
 
+    def _param_shapes(self):
+        H, F = self.config.hidden_dim, self.config.features
+        return (
+            (H, F), (H, H), (H,),
+            (H, F), (H, H), (H,),
+            (H, F), (H, H), (H,),
+        )
+
+    def _split_params(self, flat):
+        shapes = self._param_shapes()
+        offsets = []
+        total = 0
+        for shape in shapes[:-1]:
+            total += math.prod(shape)
+            offsets.append(total)
+        parts = jnp.split(flat, offsets, axis=-1)
+        return {
+            name: part.reshape(*flat.shape[:-1], *shape)
+            for name, part, shape in zip(_PARAM_NAMES, parts, shapes)
+        }
+
+    @property
+    def unit_index(self):
+        return jnp.concatenate(
+            [
+                jnp.repeat(jnp.arange(shape[0]), math.prod(shape[1:]))
+                for shape in self._param_shapes()
+            ]
+        )
+
     @staticmethod
     def _step(h, W_ir, W_hr, b_r, W_iz, W_hz, b_z, W_in, W_hn, b_n, x):
         r = nn.sigmoid(W_ir @ x + W_hr @ h + b_r)
@@ -67,17 +97,20 @@ class GRUCell(RNNCellBase):
         return self.config.output_activation_fn(carry)
 
     def local_jacobian(self, carry: Array, inputs: Array, **kwargs):
+        H = self.config.hidden_dim
         params = jax.lax.stop_gradient(self._params())
         new_carry = self._step(jax.lax.stop_gradient(carry), *params, inputs)
         jacobians = jax.jacrev(self._step, argnums=tuple(range(10)))(
             carry, *params, inputs
         )
         state_jacobian = jacobians[0]
-        parameter_jacobian = dict(zip(_PARAM_NAMES, jacobians[1:10]))
+        parameter_jacobian = jnp.concatenate(
+            [leaf.reshape(H, -1) for leaf in jacobians[1:10]], axis=-1
+        )
         return new_carry, state_jacobian, parameter_jacobian
 
-    def propagate_influence(self, state_jacobian, influence_leaf):
-        return jnp.tensordot(state_jacobian, influence_leaf, axes=1)
+    def propagate_influence(self, state_jacobian, influence):
+        return state_jacobian @ influence
 
     def local_jvp(self, carry: Array, inputs: Array, tangent: Array):
         params = jax.lax.stop_gradient(self._params())
@@ -88,7 +121,7 @@ class GRUCell(RNNCellBase):
         carry = jax.lax.stop_gradient(carry)
         params = jax.lax.stop_gradient(self._params())
         _, vjp_fn = jax.vjp(lambda *p: self._step(carry, *p, inputs), *params)
-        return dict(zip(_PARAM_NAMES, vjp_fn(cotangent)))
+        return jnp.concatenate([leaf.reshape(-1) for leaf in vjp_fn(cotangent)])
 
     def inject_influence(self, carry: Array, influence):
         def fn(mdl, h, influence):
@@ -98,12 +131,65 @@ class GRUCell(RNNCellBase):
             return h, influence
 
         def backward_fn(influence, tangent):
-            contract = sparse.sparsify(lambda t, leaf: jnp.tensordot(t, leaf, axes=1))
-            g_params = jax.tree.map(
-                lambda leaf: contract(tangent, leaf),
-                influence,
-                is_leaf=lambda leaf: isinstance(leaf, sparse.BCOO),
-            )
+            g_params = self._split_params(tangent @ influence)
+            return {"params": g_params}, tangent, None
+
+        return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
+            self, carry, influence
+        )
+
+    @staticmethod
+    def _unit_step(
+        h, h_i, W_ir_i, W_hr_i, b_r_i, W_iz_i, W_hz_i, b_z_i, W_in_i, W_hn_i, b_n_i, x
+    ):
+        r = nn.sigmoid(W_ir_i @ x + W_hr_i @ h + b_r_i)
+        z = nn.sigmoid(W_iz_i @ x + W_hz_i @ h + b_z_i)
+        n = jnp.tanh(W_in_i @ x + r * (W_hn_i @ h + b_n_i))
+        return (1.0 - z) * n + z * h_i
+
+    def local_jacobian_diagonal(self, carry: Array, inputs: Array):
+        params = jax.lax.stop_gradient(self._params())
+        h = jax.lax.stop_gradient(carry)
+        new_carry = self._step(h, *params, inputs)
+        state_jacobian_diagonal = jnp.diagonal(
+            jax.jacrev(self._step, argnums=0)(h, *params, inputs)
+        )
+        unit_jacobians = jax.vmap(
+            jax.jacfwd(self._unit_step, argnums=tuple(range(2, 11))),
+            in_axes=(None, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, None),
+        )(h, h, *params, inputs)
+        parameter_jacobian_diagonal = jnp.concatenate(
+            [leaf.reshape(-1) for leaf in unit_jacobians]
+        )
+        return new_carry, state_jacobian_diagonal, parameter_jacobian_diagonal
+
+    def inject_influence_rank1(self, carry: Array, u, v):
+        def fn(mdl, h, u, v):
+            return h
+
+        def forward_fn(mdl, h, u, v):
+            return h, (u, v)
+
+        def backward_fn(residual, tangent):
+            u, v = residual
+            g_params = self._split_params((tangent @ u) * v)
+            return {"params": g_params}, tangent, None, None
+
+        return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
+            self, carry, u, v
+        )
+
+    def inject_influence_diagonal(self, carry: Array, influence):
+        unit_index = self.unit_index
+
+        def fn(mdl, h, influence):
+            return h
+
+        def forward_fn(mdl, h, influence):
+            return h, influence
+
+        def backward_fn(influence, tangent):
+            g_params = self._split_params(tangent[unit_index] * influence)
             return {"params": g_params}, tangent, None
 
         return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
@@ -116,14 +202,4 @@ class GRUCell(RNNCellBase):
 
     def initialize_influence(self, key, input_shape):
         H, F = self.config.hidden_dim, self.config.features
-        return {
-            "W_ir": jnp.zeros((H, H, F)),
-            "W_hr": jnp.zeros((H, H, H)),
-            "b_r": jnp.zeros((H, H)),
-            "W_iz": jnp.zeros((H, H, F)),
-            "W_hz": jnp.zeros((H, H, H)),
-            "b_z": jnp.zeros((H, H)),
-            "W_in": jnp.zeros((H, H, F)),
-            "W_hn": jnp.zeros((H, H, H)),
-            "b_n": jnp.zeros((H, H)),
-        }
+        return jnp.zeros((H, 3 * (H * F + H * H + H)))

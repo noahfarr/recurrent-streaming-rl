@@ -11,7 +11,7 @@ from streamlet.networks import sparse
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
 from src.networks import build_cell, heads, infer_feature_dim
-from src.networks.network import Network
+from src.networks.network import Network, SeparateActorCritic
 
 
 def make(cfg):
@@ -20,13 +20,16 @@ def make(cfg):
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
-    feature_extractor = lambda obs, action, reward, done: nn.Sequential(
-        (
-            nn.Dense(features=64, kernel_init=sparse(sparsity=0.9)),
-            nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
-            nn.tanh,
-        )
-    )(obs)
+    def make_feature_extractor():
+        return lambda obs, action, reward, done: nn.Sequential(
+            (
+                nn.Dense(features=64, kernel_init=sparse(sparsity=0.9)),
+                nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                nn.tanh,
+            )
+        )(obs)
+
+    feature_extractor = make_feature_extractor()
 
     feature_dim = infer_feature_dim(
         feature_extractor,
@@ -35,34 +38,44 @@ def make(cfg):
         jnp.zeros(()),
         jnp.zeros((), bool),
     )
-    cell = build_cell(cfg, input_size=feature_dim)
-
     action_dim = env.action_space(env_params).shape[0]
-    actor_network = Network(
-        feature_extractor=feature_extractor,
-        cell=cell,
-        head=heads.Projection(
-            features=64,
-            kernel_init=sparse(sparsity=0.9),
-            head=heads.Gaussian(
-                action_dim=action_dim,
-                kernel_init=nn.initializers.orthogonal(0.01),
-                bias_init=nn.initializers.constant(0.0),
-            ),
+    actor_head = heads.Projection(
+        features=64,
+        kernel_init=sparse(sparsity=0.9),
+        head=heads.Gaussian(
+            action_dim=action_dim,
+            kernel_init=nn.initializers.orthogonal(0.01),
+            bias_init=nn.initializers.constant(0.0),
         ),
     )
-    critic_network = Network(
-        feature_extractor=feature_extractor,
-        cell=cell,
-        head=heads.Projection(
-            features=64,
-            kernel_init=sparse(sparsity=0.9),
-            head=heads.VNetwork(
-                kernel_init=nn.initializers.orthogonal(1.0),
-                bias_init=nn.initializers.constant(0.0),
-            ),
+    critic_head = heads.Projection(
+        features=64,
+        kernel_init=sparse(sparsity=0.9),
+        head=heads.VNetwork(
+            kernel_init=nn.initializers.orthogonal(1.0),
+            bias_init=nn.initializers.constant(0.0),
         ),
     )
+
+    if cfg.network == "shared":
+        network = Network(
+            feature_extractor=feature_extractor,
+            cell=build_cell(cfg, input_size=feature_dim),
+            head=heads.ActorCritic(actor=actor_head, critic=critic_head),
+        )
+    else:
+        network = SeparateActorCritic(
+            actor=Network(
+                feature_extractor=feature_extractor,
+                cell=build_cell(cfg, input_size=feature_dim),
+                head=actor_head,
+            ),
+            critic=Network(
+                feature_extractor=make_feature_extractor(),
+                cell=build_cell(cfg, input_size=feature_dim),
+                head=critic_head,
+            ),
+        )
 
     actor_optimizer = instantiate(cfg.actor_optimizer)
     critic_optimizer = instantiate(cfg.critic_optimizer)
@@ -71,8 +84,7 @@ def make(cfg):
         cfg=instantiate(cfg.algorithm),
         env=env,
         env_params=env_params,
-        actor_network=actor_network,
-        critic_network=critic_network,
+        network=network,
         actor_optimizer=actor_optimizer,
         critic_optimizer=critic_optimizer,
     )

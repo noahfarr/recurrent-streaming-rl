@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import optax
 from flax import linen as nn
 from flax import struct
-from src.utils.typing import Array, Carry, PyTree
+from src.utils.typing import Array, Carry
 
 from .rnn import reset_carry
 
@@ -12,7 +12,7 @@ from .rnn import reset_carry
 class UOROCarry:
     carry: Carry
     u: Array
-    v: PyTree
+    v: Array
     key: Array
 
 
@@ -27,12 +27,10 @@ class UORO(nn.Module):
         if done is None:
             done = jnp.zeros((), dtype=jnp.bool_)
         initial_carry = self.cell.initialize_carry(jax.random.key(0), inputs.shape)
-        zero_u = jnp.zeros_like(carry.u)
-        zero_v = jax.tree.map(jnp.zeros_like, carry.v)
         carry = UOROCarry(
             carry=reset_carry(done, carry.carry, initial_carry),
-            u=reset_carry(done, carry.u, zero_u),
-            v=reset_carry(done, carry.v, zero_v),
+            u=reset_carry(done, carry.u, jnp.zeros_like(carry.u)),
+            v=reset_carry(done, carry.v, jnp.zeros_like(carry.v)),
             key=carry.key,
         )
 
@@ -53,20 +51,9 @@ class UORO(nn.Module):
         )
 
         u = jax.lax.stop_gradient(rho_0 * forward_u + rho_1 * noise)
-        v = jax.tree.map(
-            lambda v, immediate_v: jax.lax.stop_gradient(
-                v / rho_0 + immediate_v / rho_1
-            ),
-            carry.v,
-            immediate_v,
-        )
+        v = jax.lax.stop_gradient(carry.v / rho_0 + immediate_v / rho_1)
 
-        def outer(v_leaf):
-            return jnp.tensordot(u, v_leaf, axes=0)
-
-        influence = jax.tree.map(outer, v)
-
-        new_carry = self.cell.inject_influence(new_carry, influence)
+        new_carry = self.cell.inject_influence_rank1(new_carry, u, v)
 
         return UOROCarry(carry=new_carry, u=u, v=v, key=key), self.cell.output(
             new_carry
@@ -76,5 +63,5 @@ class UORO(nn.Module):
         carry = self.cell.initialize_carry(key, input_shape)
         influence = self.cell.initialize_influence(key, input_shape)
         u = jnp.zeros_like(carry)
-        v = jax.tree.map(lambda leaf: jnp.zeros(leaf.shape[1:]), influence)
+        v = jnp.zeros(influence.shape[-1])
         return UOROCarry(carry=carry, u=u, v=v, key=key)

@@ -1,13 +1,8 @@
 import flax.linen as nn
-import jax
 import jax.numpy as jnp
 import numpy as np
 from flax.linen.initializers import constant, orthogonal
 from hydra.utils import instantiate
-from streamlet.environments.wrappers import (
-    NormalizeObservationWrapper,
-    NormalizeRewardWrapper,
-)
 
 from src.algorithms.ppo.ppo import PPO
 from src.environments import environment

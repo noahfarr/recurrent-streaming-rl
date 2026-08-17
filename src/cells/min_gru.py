@@ -73,6 +73,15 @@ class MinGRUCell(RNNCellBase):
     def output(self, carry: Array) -> Array:
         return self.config.output_activation_fn(carry)
 
+    def _split_params(self, flat):
+        F = self.config.features
+        return {
+            "W_z": flat[..., :F],
+            "b_z": flat[..., F],
+            "W_h": flat[..., F + 1 : 2 * F + 1],
+            "b_h": flat[..., 2 * F + 1],
+        }
+
     def local_jacobian(self, carry: Array, inputs: Array, **kwargs):
         params = jax.lax.stop_gradient(self._params())
         h = jax.lax.stop_gradient(carry)
@@ -80,16 +89,25 @@ class MinGRUCell(RNNCellBase):
             jax.jacfwd(self._unit_step, argnums=(0, 1, 2, 3, 4)),
             in_axes=(0, 0, 0, 0, 0, None),
         )(h, *params, inputs)
-        state_jacobian, *parameter_jacobians = jacobians
+        state_jacobian, W_z_jacobian, b_z_jacobian, W_h_jacobian, b_h_jacobian = (
+            jacobians
+        )
         new_carry = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, None))(
             h, *params, inputs
         )
-        parameter_jacobian = dict(zip(_PARAM_NAMES, parameter_jacobians))
+        parameter_jacobian = jnp.concatenate(
+            [
+                W_z_jacobian,
+                b_z_jacobian[:, None],
+                W_h_jacobian,
+                b_h_jacobian[:, None],
+            ],
+            axis=-1,
+        )
         return new_carry, state_jacobian, parameter_jacobian
 
-    def propagate_influence(self, state_jacobian, influence_leaf):
-        broadcast_dims = (1,) * (influence_leaf.ndim - 1)
-        return state_jacobian.reshape(-1, *broadcast_dims) * influence_leaf
+    def propagate_influence(self, state_jacobian, influence):
+        return state_jacobian[:, None] * influence
 
     def inject_influence(self, carry: Array, influence):
         def fn(mdl, h, influence):
@@ -99,11 +117,7 @@ class MinGRUCell(RNNCellBase):
             return h, influence
 
         def backward_fn(influence, tangent):
-            def inject(leaf):
-                broadcast_dims = (1,) * (leaf.ndim - 1)
-                return tangent.reshape(-1, *broadcast_dims) * leaf
-
-            g_params = jax.tree.map(inject, influence)
+            g_params = self._split_params(tangent[:, None] * influence)
             return {"params": g_params}, tangent, None
 
         return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
@@ -116,9 +130,4 @@ class MinGRUCell(RNNCellBase):
 
     def initialize_influence(self, key, input_shape):
         H, F = self.config.hidden_dim, self.config.features
-        return {
-            "W_z": jnp.zeros((H, F)),
-            "b_z": jnp.zeros((H,)),
-            "W_h": jnp.zeros((H, F)),
-            "b_h": jnp.zeros((H,)),
-        }
+        return jnp.zeros((H, 2 * F + 2))

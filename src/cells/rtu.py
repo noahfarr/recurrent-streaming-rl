@@ -124,25 +124,34 @@ class RTUCell(RNNCellBase):
             b_imag_jacobian,
         ) = jacobians
 
-        parameter_jacobian = {
-            "nu_log": nu_jacobian,
-            "theta_log": theta_jacobian,
-            "B_real": b_real_jacobian,
-            "B_imag": b_imag_jacobian,
-        }
-        parameter_jacobian = jax.tree.map(
-            lambda x: jnp.moveaxis(x, 1, 0), parameter_jacobian
+        parameter_jacobian = jnp.moveaxis(
+            jnp.concatenate(
+                [
+                    nu_jacobian[..., None],
+                    theta_jacobian[..., None],
+                    b_real_jacobian,
+                    b_imag_jacobian,
+                ],
+                axis=-1,
+            ),
+            1,
+            0,
         )
 
         carry = RTUCarry(real=new_carry[:, 0], imaginary=new_carry[:, 1])
         return carry, state_jacobian, parameter_jacobian
 
-    def propagate_influence(self, state_jacobian, influence_leaf):
-        return jax.vmap(
-            lambda unit_jacobian, unit_influence: unit_jacobian @ unit_influence,
-            in_axes=(0, 1),
-            out_axes=1,
-        )(state_jacobian, influence_leaf)
+    def propagate_influence(self, state_jacobian, influence):
+        return jnp.einsum("icd,dik->cik", state_jacobian, influence)
+
+    def _split_params(self, flat):
+        F = self.config.features
+        return {
+            "nu_log": flat[..., 0],
+            "theta_log": flat[..., 1],
+            "B_real": flat[..., 2 : 2 + F],
+            "B_imag": flat[..., 2 + F : 2 + 2 * F],
+        }
 
     def inject_influence(self, carry, influence):
 
@@ -154,16 +163,10 @@ class RTUCell(RNNCellBase):
 
         def backward_fn(influence, tangents):
             g_real, g_imag = tangents
-
-            def inject(s):
-                real, imag = s
-                broadcast_dims = [1] * (real.ndim - 1)
-                return (
-                    g_real.reshape(-1, *broadcast_dims) * real
-                    + g_imag.reshape(-1, *broadcast_dims) * imag
-                )
-
-            g_params = jax.tree.map(inject, influence)
+            tangent = jnp.stack([g_real, g_imag])
+            g_params = self._split_params(
+                jnp.einsum("ci,cik->ik", tangent, influence)
+            )
             return {"params": g_params}, g_real, g_imag, None
 
         real, imag = nn.custom_vjp(
@@ -180,9 +183,4 @@ class RTUCell(RNNCellBase):
 
     def initialize_influence(self, key, input_shape):
         H, F = self.config.hidden_dim, self.config.features
-        return {
-            "nu_log": jnp.zeros((2, H)),
-            "theta_log": jnp.zeros((2, H)),
-            "B_real": jnp.zeros((2, H, F)),
-            "B_imag": jnp.zeros((2, H, F)),
-        }
+        return jnp.zeros((2, H, 2 * F + 2))

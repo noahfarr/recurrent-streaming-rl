@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import flax.linen as nn
 import jax
@@ -27,6 +27,27 @@ class Network(nn.Module):
         if self.cell is None:
             return None
         return self.cell.initialize_carry(key, input_shape)
+
+
+class SeparateActorCritic(nn.Module):
+    actor: Network
+    critic: Network
+
+    @nn.compact
+    def __call__(self, carry, obs, action, reward, done, **kwargs):
+        actor_carry, critic_carry = carry
+        actor_carry, dist = self.actor(actor_carry, obs, action, reward, done, **kwargs)
+        critic_carry, value = self.critic(
+            critic_carry, obs, action, reward, done, **kwargs
+        )
+        return (actor_carry, critic_carry), (dist, value)
+
+    @nn.nowrap
+    def initialize_carry(self, key: Key, input_shape: tuple = ()) -> Carry:
+        return (
+            self.actor.initialize_carry(key, input_shape),
+            self.critic.initialize_carry(key, input_shape),
+        )
 
 
 def infer_feature_dim(

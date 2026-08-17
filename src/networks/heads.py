@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import distrax
 import flax.linen as nn
@@ -8,6 +8,15 @@ from flax.linen.initializers import constant
 
 from src.utils.identity import identity
 from src.utils.typing import Array
+
+
+class ActorCritic(nn.Module):
+    actor: Callable
+    critic: Callable
+
+    @nn.compact
+    def __call__(self, x: Array, **kwargs) -> tuple:
+        return self.actor(x, **kwargs), self.critic(x, **kwargs)
 
 
 class Projection(nn.Module):
