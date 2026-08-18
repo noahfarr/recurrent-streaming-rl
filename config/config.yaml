@@ -9,6 +9,10 @@ groups: ${groups:}
 
 loggers: {}
 
+hydra:
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}-${oc.env:SLURM_ARRAY_TASK_ID,0}
+
 defaults:
   - _self_
   - algorithm: ppo

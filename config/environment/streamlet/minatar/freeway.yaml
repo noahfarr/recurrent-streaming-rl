@@ -2,4 +2,7 @@ namespace: minatar
 suite: minatar
 env_id: Freeway-MinAtar
 env_params:
-  max_steps_in_episode: 2500
+  max_steps_in_episode: -1
+wrappers:
+  - _target_: streamlet.environments.wrappers.StickyActionWrapper
+    sticky_action_probability: 0.1

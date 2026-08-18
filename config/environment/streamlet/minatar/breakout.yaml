@@ -3,3 +3,6 @@ suite: minatar
 env_id: Breakout-MinAtar
 env_params:
   max_steps_in_episode: -1
+wrappers:
+  - _target_: streamlet.environments.wrappers.StickyActionWrapper
+    sticky_action_probability: 0.1
