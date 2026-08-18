@@ -35,7 +35,7 @@ def make(cfg):
             ]
         ),
         action_extractor=lambda action: jax.nn.one_hot(action, num_classes=num_actions),
-        reward_extractor=lambda reward: reward[None],
+        reward_extractor=lambda reward: reward[..., None],
     )
 
     feature_dim = infer_feature_dim(
