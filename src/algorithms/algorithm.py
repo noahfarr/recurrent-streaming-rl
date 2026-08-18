@@ -32,6 +32,8 @@ register = {
     ("intentional_q", "minatar"): stream_q_minatar.make,
     ("adaptive_q", "minatar"): stream_q_minatar.make,
     ("stream_ac", "bsuite"): stream_ac_bsuite.make,
+    ("intentional_ac", "bsuite"): stream_ac_bsuite.make,
+    ("adaptive_ac", "bsuite"): stream_ac_bsuite.make,
     ("stream_ac", "popgymnax"): stream_ac_popgymnax.make,
     ("stream_ac", "brax"): stream_ac_brax.make,
     ("stream_ac", "minatar"): stream_ac_minatar.make,
