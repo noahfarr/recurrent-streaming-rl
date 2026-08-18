@@ -5,6 +5,8 @@ import pytest
 from src.cells import (
     GRUCell,
     GRUConfig,
+    GTUCell,
+    GTUConfig,
     MinGRUCell,
     MinGRUConfig,
     RNN,
@@ -26,6 +28,11 @@ def rtu_cell():
 @pytest.fixture
 def min_gru_cell():
     return MinGRUCell(config=MinGRUConfig(features=4, hidden_dim=6))
+
+
+@pytest.fixture
+def gtu_cell():
+    return GTUCell(config=GTUConfig(features=4, hidden_dim=6))
 
 
 def bptt_grad(cell, params, xs, key):

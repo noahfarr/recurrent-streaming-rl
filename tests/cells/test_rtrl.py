@@ -6,7 +6,7 @@ from src.cells import RTRL
 
 from .conftest import assert_trees_close, bptt_grad
 
-CELL_FIXTURES = ["gru_cell", "rtu_cell", "min_gru_cell"]
+CELL_FIXTURES = ["gru_cell", "rtu_cell", "min_gru_cell", "gtu_cell"]
 
 
 @pytest.mark.parametrize("T", [1, 2, 3, 5, 8])

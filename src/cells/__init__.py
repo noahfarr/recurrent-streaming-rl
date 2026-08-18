@@ -1,4 +1,5 @@
 from .gru import GRUCell, GRUConfig
+from .gtu import GTUCarry, GTUCell, GTUConfig
 from .min_gru import MinGRUCell, MinGRUConfig
 from .rnn import RNN
 from .rtrl import RTRL, RTRLCarry
