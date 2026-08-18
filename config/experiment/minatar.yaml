@@ -10,4 +10,4 @@ hydra:
   sweeper:
     params:
       algorithm: stream_q,intentional_q,adaptive_q
-      environment: streamlet/minatar/asterix,streamlet/minatar/breakout,streamlet/minatar/freeway,streamlet/minatar/seaquest,streamlet/minatar/space_invaders
+      environment: streamlet/minatar/asterix,streamlet/minatar/breakout,streamlet/minatar/seaquest,streamlet/minatar/space_invaders
