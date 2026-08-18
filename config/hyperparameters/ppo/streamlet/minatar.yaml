@@ -1,9 +1,8 @@
 # @package _global_
 
 algorithm:
-  num_envs: 32
   num_steps: 128
-  num_minibatches: 8
+  num_minibatches: 1
   update_epochs: 4
   gamma: 0.99
   gae_lambda: 0.95

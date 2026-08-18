@@ -7,7 +7,6 @@ defaults:
 
 algorithm:
   _target_: src.algorithms.sac.SACConfig
-  num_envs: 1
   gamma: 0.99
   tau: 0.005
   train_frequency: 1

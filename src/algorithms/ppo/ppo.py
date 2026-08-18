@@ -25,7 +25,6 @@ from src.utils.typing import Carry
 
 @struct.dataclass(frozen=True)
 class PPOConfig:
-    num_envs: int
     num_steps: int
     gamma: float
     gae_lambda: float
@@ -35,10 +34,6 @@ class PPOConfig:
     clip_coefficient: float
     clip_value_loss: bool
     entropy_coefficient: float
-
-    @property
-    def batch_size(self):
-        return self.num_envs * self.num_steps
 
 
 @struct.dataclass(frozen=True)
@@ -69,8 +64,8 @@ class PPO:
         assert (
             self.cfg.update_epochs >= 1
         ), f"update_epochs ({self.cfg.update_epochs}) must be >= 1"
-        assert self.cfg.batch_size % self.cfg.num_minibatches == 0, (
-            f"num_envs * num_steps ({self.cfg.batch_size}) must be divisible by "
+        assert self.cfg.num_steps % self.cfg.num_minibatches == 0, (
+            f"num_steps ({self.cfg.num_steps}) must be divisible by "
             f"num_minibatches ({self.cfg.num_minibatches})"
         )
         assert not isinstance(
@@ -81,9 +76,7 @@ class PPO:
         ), "PPO requires a BPTT cell (mode=bptt), not RTRL"
 
     def apply(self, network: nn.Module, params, carry, timestep) -> tuple:
-        return jax.vmap(network.apply, in_axes=(None, 0, 0, 0, 0, 0))(
-            params, carry, *timestep
-        )
+        return network.apply(params, carry, *timestep)
 
     def generalized_advantage_estimation(self, carry: tuple, transition: Transition):
         advantage, next_value = carry
@@ -117,10 +110,9 @@ class PPO:
         )
         value = jnp.squeeze(value, axis=-1)
 
-        step_keys = jax.random.split(step_key, self.cfg.num_envs)
-        next_obs, env_state, reward, done, info = jax.vmap(
-            self.env.step, in_axes=(0, 0, 0, None)
-        )(step_keys, state.env_state, action, self.env_params)
+        next_obs, env_state, reward, done, info = self.env.step(
+            step_key, state.env_state, action, self.env_params
+        )
         reward = jnp.asarray(reward, dtype=jnp.float32)
         done = jnp.asarray(done, dtype=jnp.bool_)
         del info
@@ -135,7 +127,7 @@ class PPO:
         )
 
         state = state.replace(
-            step=state.step + self.cfg.num_envs,
+            step=state.step + 1,
             timestep=Timestep(
                 obs=next_obs,
                 action=jnp.where(
@@ -271,29 +263,27 @@ class PPO:
         state, initial_actor_carry, initial_critic_carry, transitions = carry
 
         if initial_actor_carry is not None:
-            num_permutations = self.cfg.num_envs
-            batch = (initial_actor_carry, initial_critic_carry, transitions)
-        else:
-            num_permutations = self.cfg.num_envs * self.cfg.num_steps
-            batch = (
-                initial_actor_carry,
-                initial_critic_carry,
-                jax.tree.map(lambda x: x.reshape(-1, *x.shape[2:]), transitions),
+            if self.cfg.num_minibatches != 1:
+                raise ValueError(
+                    "A recurrent PPO rollout is a single sequence, so "
+                    f"num_minibatches ({self.cfg.num_minibatches}) must be 1"
+                )
+            state, _ = self.update_minibatch(
+                state, (initial_actor_carry, initial_critic_carry, transitions)
             )
-
-        permutation = jax.random.permutation(key, num_permutations)
-        minibatches = jax.tree.map(
-            lambda x: jnp.take(x, permutation, axis=0).reshape(
-                self.cfg.num_minibatches, -1, *x.shape[1:]
-            ),
-            batch,
-        )
-
-        state, _ = jax.lax.scan(
-            self.update_minibatch,
-            state,
-            minibatches,
-        )
+        else:
+            permutation = jax.random.permutation(key, self.cfg.num_steps)
+            minibatches = jax.tree.map(
+                lambda x: jnp.take(x, permutation, axis=0).reshape(
+                    self.cfg.num_minibatches, -1, *x.shape[1:]
+                ),
+                (initial_actor_carry, initial_critic_carry, transitions),
+            )
+            state, _ = jax.lax.scan(
+                self.update_minibatch,
+                state,
+                minibatches,
+            )
 
         return (state, initial_actor_carry, initial_critic_carry, transitions), None
 
@@ -327,7 +317,6 @@ class PPO:
         transitions = transitions.replace(
             aux={**transitions.aux, "advantages": advantages, "returns": returns}
         )
-        transitions = jax.tree.map(lambda x: jnp.swapaxes(x, 0, 1), transitions)
 
         epoch_keys = jax.random.split(epoch_key, self.cfg.update_epochs)
         (state, *_), _ = jax.lax.scan(
@@ -343,37 +332,21 @@ class PPO:
             jax.random.split(key, 5)
         )
 
-        env_keys = jax.random.split(env_key, self.cfg.num_envs)
-        obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
-            env_keys, self.env_params
-        )
+        obs, env_state = self.env.reset(env_key, self.env_params)
         action_space = self.env.action_space(self.env_params)
         action = jnp.zeros(
-            (self.cfg.num_envs, *action_space.shape),
+            action_space.shape,
             dtype=canonicalize_dtype(action_space.dtype),
         )
-        reward = jnp.zeros((self.cfg.num_envs,), dtype=jnp.float32)
-        done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
+        reward = jnp.zeros((), dtype=jnp.float32)
+        done = jnp.ones((), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
         actor_carry = self.actor_network.initialize_carry(actor_carry_key)
         critic_carry = self.critic_network.initialize_carry(critic_carry_key)
 
-        actor_params = self.actor_network.init(
-            actor_key, actor_carry, *jax.tree.map(lambda x: x[0], timestep)
-        )
-        critic_params = self.critic_network.init(
-            critic_key, critic_carry, *jax.tree.map(lambda x: x[0], timestep)
-        )
-
-        actor_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            actor_carry,
-        )
-        critic_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            critic_carry,
-        )
+        actor_params = self.actor_network.init(actor_key, actor_carry, *timestep)
+        critic_params = self.critic_network.init(critic_key, critic_carry, *timestep)
 
         actor_optimizer_state = self.actor_optimizer.init(actor_params)
         critic_optimizer_state = self.critic_optimizer.init(critic_params)
@@ -395,9 +368,7 @@ class PPO:
         return state
 
     def train(self, key: Key, state: PPOState, num_steps: int) -> PPOState:
-        keys = jax.random.split(
-            key, num_steps // (self.cfg.num_steps * self.cfg.num_envs)
-        )
+        keys = jax.random.split(key, num_steps // self.cfg.num_steps)
         state, _ = jax.lax.scan(
             self.update_step,
             state,
@@ -415,31 +386,22 @@ class PPO:
         reset_key, actor_carry_key, critic_carry_key, eval_key = jax.random.split(
             key, 4
         )
-        reset_keys = jax.random.split(reset_key, self.cfg.num_envs)
-        obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
-            reset_keys, self.env_params
-        )
+        obs, env_state = self.env.reset(reset_key, self.env_params)
         action_space = self.env.action_space(self.env_params)
         action = jnp.zeros(
-            (self.cfg.num_envs, *action_space.shape),
+            action_space.shape,
             dtype=canonicalize_dtype(action_space.dtype),
         )
-        reward = jnp.zeros((self.cfg.num_envs,), dtype=jnp.float32)
-        done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
+        reward = jnp.zeros((), dtype=jnp.float32)
+        done = jnp.ones((), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
         actor_carry = self.actor_network.initialize_carry(actor_carry_key)
         critic_carry = self.critic_network.initialize_carry(critic_carry_key)
         state = state.replace(
             timestep=timestep,
-            actor_carry=jax.tree.map(
-                lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-                actor_carry,
-            ),
-            critic_carry=jax.tree.map(
-                lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-                critic_carry,
-            ),
+            actor_carry=actor_carry,
+            critic_carry=critic_carry,
             env_state=env_state,
         )
 

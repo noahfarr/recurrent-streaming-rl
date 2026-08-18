@@ -7,11 +7,10 @@ defaults:
 
 algorithm:
   _target_: src.algorithms.ppo.ppo.PPOConfig
-  num_envs: 4
   num_steps: 128
   gae_lambda: 0.95
   gamma: 0.99
-  num_minibatches: 4
+  num_minibatches: 1
   update_epochs: 4
   normalize_advantage: True
   clip_coefficient: 0.2

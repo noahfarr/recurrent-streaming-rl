@@ -76,12 +76,12 @@ def make(cfg):
     alpha_network = heads.Alpha(initial_alpha=1.0)
 
     buffer = make_trajectory_buffer(
-        add_batch_size=cfg.algorithm.num_envs,
+        add_batch_size=1,
         sample_batch_size=cfg.algorithm.batch_size,
         sample_sequence_length=cfg.algorithm.sequence_length,
         period=1,
         min_length_time_axis=cfg.algorithm.sequence_length,
-        max_length_time_axis=cfg.algorithm.buffer_size // cfg.algorithm.num_envs,
+        max_length_time_axis=cfg.algorithm.buffer_size,
     )
 
     return SAC(

@@ -20,14 +20,13 @@ from streamlet.utils.typing import (
 )
 
 from src.cells import RTRL
-from src.utils.axes import add_time_axis, broadcast_done
+from src.utils.axes import broadcast_done
 from src.utils.typing import Carry
 from src.utils.update import periodic_incremental_update
 
 
 @struct.dataclass(frozen=True)
 class SACConfig:
-    num_envs: int
     gamma: float
     tau: float
     train_frequency: int
@@ -72,14 +71,9 @@ class SAC:
     buffer: Any
 
     def __post_init__(self):
-        assert self.cfg.train_frequency >= self.cfg.num_envs, (
-            f"train_frequency ({self.cfg.train_frequency}) must be >= "
-            f"num_envs ({self.cfg.num_envs})"
-        )
-        assert self.cfg.train_frequency % self.cfg.num_envs == 0, (
-            f"train_frequency ({self.cfg.train_frequency}) must be divisible by "
-            f"num_envs ({self.cfg.num_envs})"
-        )
+        assert (
+            self.cfg.train_frequency >= 1
+        ), f"train_frequency ({self.cfg.train_frequency}) must be >= 1"
         assert (
             self.cfg.gradient_steps >= 1
         ), f"gradient_steps ({self.cfg.gradient_steps}) must be >= 1"
@@ -99,16 +93,17 @@ class SAC:
         self, state: SACState, key: Key, *, temperature: float
     ) -> tuple[SACState, Transition]:
         action_key, step_key = jax.random.split(key)
-        actor_carry, dist = jax.vmap(
-            partial(self.actor_network.apply, temperature=temperature),
-            in_axes=(None, 0, 0, 0, 0, 0),
-        )(state.actor_params, state.actor_carry, *state.timestep)
+        actor_carry, dist = self.actor_network.apply(
+            state.actor_params,
+            state.actor_carry,
+            *state.timestep,
+            temperature=temperature,
+        )
         action = dist.sample(seed=action_key)
 
-        step_keys = jax.random.split(step_key, self.cfg.num_envs)
-        next_obs, env_state, reward, done, info = jax.vmap(
-            self.env.step, in_axes=(0, 0, 0, None)
-        )(step_keys, state.env_state, action, self.env_params)
+        next_obs, env_state, reward, done, info = self.env.step(
+            step_key, state.env_state, action, self.env_params
+        )
         reward = jnp.asarray(reward, dtype=jnp.float32)
         done = jnp.asarray(done, dtype=jnp.bool_)
         del info
@@ -118,11 +113,11 @@ class SAC:
             second=Timestep(obs=next_obs, action=action, reward=reward, done=done),
         )
         buffer_state = self.buffer.add(
-            state.buffer_state, jax.tree.map(add_time_axis, transition)
+            state.buffer_state, jax.tree.map(lambda x: x[None, None], transition)
         )
 
         state = state.replace(
-            step=state.step + self.cfg.num_envs,
+            step=state.step + 1,
             timestep=Timestep(
                 obs=next_obs,
                 action=jnp.where(
@@ -286,7 +281,7 @@ class SAC:
         return state, None
 
     def warmup(self, key: Key, state: SACState, num_steps: int) -> SACState:
-        step_keys = jax.random.split(key, num_steps // self.cfg.num_envs)
+        step_keys = jax.random.split(key, num_steps)
         state, _ = jax.lax.scan(
             partial(self.rollout, temperature=1.0), state, step_keys
         )
@@ -295,9 +290,7 @@ class SAC:
     def update_step(self, state: SACState, key: Key) -> tuple[SACState, None]:
         step_key, gradient_key = jax.random.split(key)
 
-        step_keys = jax.random.split(
-            step_key, self.cfg.train_frequency // self.cfg.num_envs
-        )
+        step_keys = jax.random.split(step_key, self.cfg.train_frequency)
         state, _ = jax.lax.scan(
             partial(self.rollout, temperature=1.0), state, step_keys
         )
@@ -315,44 +308,29 @@ class SAC:
             keys
         )
 
-        env_keys = jax.random.split(env_key, self.cfg.num_envs)
-        obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
-            env_keys, self.env_params
-        )
+        obs, env_state = self.env.reset(env_key, self.env_params)
         action_space = self.env.action_space(self.env_params)
         action = jnp.zeros(
-            (self.cfg.num_envs, *action_space.shape),
+            action_space.shape,
             dtype=canonicalize_dtype(action_space.dtype),
         )
-        reward = jnp.zeros((self.cfg.num_envs,), dtype=jnp.float32)
-        done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
+        reward = jnp.zeros((), dtype=jnp.float32)
+        done = jnp.ones((), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
         actor_carry = self.actor_network.initialize_carry(actor_carry_key)
         critic_carry = self.critic_network.initialize_carry(critic_carry_key)
 
-        single_timestep = jax.tree.map(lambda x: x[0], timestep)
-        actor_params = self.actor_network.init(
-            actor_key, actor_carry, *single_timestep
-        )
-        critic_params = self.critic_network.init(
-            critic_key, critic_carry, *single_timestep
-        )
+        actor_params = self.actor_network.init(actor_key, actor_carry, *timestep)
+        critic_params = self.critic_network.init(critic_key, critic_carry, *timestep)
         alpha_params = self.alpha_network.init(alpha_key)
 
         actor_optimizer_state = self.actor_optimizer.init(actor_params)
         critic_optimizer_state = self.critic_optimizer.init(critic_params)
         alpha_optimizer_state = self.alpha_optimizer.init(alpha_params)
 
-        actor_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)), actor_carry
-        )
-        critic_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)), critic_carry
-        )
-
         buffer_state = self.buffer.init(
-            Transition(first=single_timestep, second=single_timestep)
+            Transition(first=timestep, second=timestep)
         )
 
         return SACState(
@@ -379,24 +357,17 @@ class SAC:
 
     def evaluate(self, key: Key, state: SACState, num_steps: int) -> SACState:
         reset_key, actor_carry_key, eval_key = jax.random.split(key, 3)
-        reset_keys = jax.random.split(reset_key, self.cfg.num_envs)
-        obs, env_state = jax.vmap(self.env.reset, in_axes=(0, None))(
-            reset_keys, self.env_params
-        )
+        obs, env_state = self.env.reset(reset_key, self.env_params)
         action_space = self.env.action_space(self.env_params)
         action = jnp.zeros(
-            (self.cfg.num_envs, *action_space.shape),
+            action_space.shape,
             dtype=canonicalize_dtype(action_space.dtype),
         )
-        reward = jnp.zeros((self.cfg.num_envs,), dtype=jnp.float32)
-        done = jnp.ones((self.cfg.num_envs,), dtype=jnp.bool_)
+        reward = jnp.zeros((), dtype=jnp.float32)
+        done = jnp.ones((), dtype=jnp.bool_)
         timestep = Timestep(obs=obs, action=action, reward=reward, done=done)
 
         actor_carry = self.actor_network.initialize_carry(actor_carry_key)
-        actor_carry = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (self.cfg.num_envs, *x.shape)),
-            actor_carry,
-        )
         state = state.replace(
             timestep=timestep, env_state=env_state, actor_carry=actor_carry
         )
