@@ -86,7 +86,7 @@ class BufferedRTRL(RTRL):
     def initialize_carry(self, key, input_shape):
         return BufferedRTRLCarry(
             carry=super().initialize_carry(key, input_shape),
-            buffer=jnp.zeros((self.buffer_size, input_shape[-1])),
+            buffer=jnp.zeros((self.buffer_size, self.cell.config.features)),
             length=jnp.zeros((), dtype=jnp.int32),
         )
 
