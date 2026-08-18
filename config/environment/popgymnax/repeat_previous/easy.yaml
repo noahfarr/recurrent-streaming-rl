@@ -1,0 +1,7 @@
+namespace: popgymnax
+suite: popgymnax
+env_id: RepeatPrevious
+kwargs:
+  difficulty: Easy
+env_params:
+  max_steps_in_episode: 52
