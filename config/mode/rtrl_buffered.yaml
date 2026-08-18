@@ -1,0 +1,6 @@
+# @package _global_
+mode:
+  wrapper:
+    _target_: src.cells.BufferedRTRL
+    _partial_: true
+    buffer_size: 256
