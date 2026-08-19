@@ -37,6 +37,7 @@ register = {
     ("intentional_q", "minatar"): stream_q_minatar.make,
     ("adaptive_q", "minatar"): stream_q_minatar.make,
     ("implicit_q", "minatar"): stream_q_minatar.make,
+    ("kalman_q", "minatar"): stream_q_minatar.make,
     ("calibrated_q", "minatar"): stream_q_minatar.make,
     ("stream_ac", "bsuite"): stream_ac_bsuite.make,
     ("intentional_ac", "bsuite"): stream_ac_bsuite.make,
@@ -77,6 +78,7 @@ def policy_params(state):
             "adaptive_q": "params",
             "implicit_q": "params",
             "calibrated_q": "params",
+            "kalman_q": "params",
             "qrc": "params",
         }[name],
     )

@@ -1,0 +1,11 @@
+_target_: streamlet.optimizers.Kalman
+name: ???
+cfg:
+  _target_: streamlet.optimizers.KalmanConfig
+  gamma: ???
+  m_init: 1.0
+  process_noise: 1e-6
+  beta: 0.999
+  sigma_floor: 0.1
+  alpha_max: 1.0
+  eps: 1e-8
