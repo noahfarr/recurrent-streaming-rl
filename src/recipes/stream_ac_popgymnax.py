@@ -102,7 +102,7 @@ def make(cfg):
     if auxiliary_weight > 0:
 
         def auxiliary_loss(transition):
-            prediction = jax.tree.leaves(transition.aux["intermediates"])[0]
+            prediction = jax.tree.leaves(transition.aux["auxiliary_losses"])[0]
             target = transition.second.reward
             return auxiliary_weight * jnp.square(
                 prediction[transition.second.action] - target

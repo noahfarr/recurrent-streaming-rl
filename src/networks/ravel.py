@@ -22,9 +22,9 @@ class Ravel(nn.Module):
             lambda key: ravel_pytree(self.network.init(key, carry, *args))[0],
         )
         out, variables = self.network.apply(
-            unravel(params), carry, *args, mutable=["intermediates"], **kwargs
+            unravel(params), carry, *args, mutable=["auxiliary_losses"], **kwargs
         )
-        self.sow("intermediates", "inner", variables.get("intermediates", {}))
+        self.sow("auxiliary_losses", "inner", variables.get("auxiliary_losses", {}))
         return out
 
     @nn.nowrap

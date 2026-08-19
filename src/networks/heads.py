@@ -31,7 +31,7 @@ class AuxiliaryPrediction(nn.Module):
         prediction = nn.Dense(
             self.features, kernel_init=self.kernel_init, bias_init=self.bias_init
         )(x)
-        self.sow("intermediates", "prediction", prediction)
+        self.sow("auxiliary_losses", "prediction", prediction)
         return self.head(x, **kwargs)
 
 
