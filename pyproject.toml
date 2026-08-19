@@ -13,6 +13,7 @@ dependencies = [
     "hydra-core>=1.3.2",
     "hydra-slurmpilot-launcher",
     "omegaconf>=2.3.0",
+    "ale-py[xla]>=0.12.1",
 ]
 
 [project.optional-dependencies]

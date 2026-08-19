@@ -1,0 +1,17 @@
+# @package _global_
+
+algorithm:
+  gamma: 0.99
+  trace_lambda: 0.8
+
+q_optimizer:
+  cfg:
+    lr: 1.0
+    kappa: 2.0
+
+epsilon_start: 1.0
+epsilon_end: 0.01
+epsilon_fraction: 0.05
+
+total_timesteps: 5_000_000
+num_epochs: 25

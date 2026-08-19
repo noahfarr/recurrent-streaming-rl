@@ -1,6 +1,7 @@
 from hydra.core.hydra_config import HydraConfig
 
 from src.recipes import (
+    stream_q_atari,
     ppo_brax,
     ppo_classic_control,
     ppo_minatar,
@@ -28,6 +29,9 @@ register = {
     ("qrc", "popgymnax"): qrc_popgymnax.make,
     ("qrc", "minatar"): qrc_minatar.make,
     ("stream_q", "popgymnax"): stream_q_popgymnax.make,
+    ("stream_q", "ale"): stream_q_atari.make,
+    ("intentional_q", "ale"): stream_q_atari.make,
+    ("implicit_q", "ale"): stream_q_atari.make,
     ("implicit_q", "popgymnax"): stream_q_popgymnax.make,
     ("stream_q", "minatar"): stream_q_minatar.make,
     ("intentional_q", "minatar"): stream_q_minatar.make,
