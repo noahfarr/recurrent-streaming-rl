@@ -20,6 +20,21 @@ class ActorCritic(nn.Module):
         return self.actor(x, **kwargs), self.critic(x, **kwargs)
 
 
+class AuxiliaryPrediction(nn.Module):
+    head: Callable
+    features: int
+    kernel_init: nn.initializers.Initializer = nn.initializers.lecun_normal()
+    bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
+
+    @nn.compact
+    def __call__(self, x: Array, **kwargs):
+        prediction = nn.Dense(
+            self.features, kernel_init=self.kernel_init, bias_init=self.bias_init
+        )(x)
+        self.sow("intermediates", "prediction", prediction)
+        return self.head(x, **kwargs)
+
+
 class Projection(nn.Module):
     features: int
     head: Callable = identity

@@ -5,6 +5,7 @@ learning_starts: 0
 seed: 0
 num_seeds: 1
 precision: float32
+auxiliary_loss_weight: 0.0
 
 groups: ${groups:}
 

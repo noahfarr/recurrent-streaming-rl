@@ -21,7 +21,11 @@ class Ravel(nn.Module):
             "raveled",
             lambda key: ravel_pytree(self.network.init(key, carry, *args))[0],
         )
-        return self.network.apply(unravel(params), carry, *args, **kwargs)
+        out, variables = self.network.apply(
+            unravel(params), carry, *args, mutable=["intermediates"], **kwargs
+        )
+        self.sow("intermediates", "inner", variables.get("intermediates", {}))
+        return out
 
     @nn.nowrap
     def initialize_carry(self, key: Key, input_shape: tuple = ()) -> Carry:

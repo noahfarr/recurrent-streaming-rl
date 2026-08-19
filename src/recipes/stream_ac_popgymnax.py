@@ -67,13 +67,20 @@ def make(cfg):
     )
     critic_head = heads.VNetwork(kernel_init=sparse(sparsity=0.9), dtype=dtype)
 
+    auxiliary_weight = cfg.auxiliary_loss_weight
     if cfg.network == "shared":
+        head = heads.ActorCritic(actor=actor_head, critic=critic_head)
+        if auxiliary_weight > 0:
+            head = heads.AuxiliaryPrediction(head=head, features=num_actions)
         network = Network(
             feature_extractor=feature_extractor,
             cell=build_cell(cfg, input_size=feature_dim),
-            head=heads.ActorCritic(actor=actor_head, critic=critic_head),
+            head=head,
         )
     else:
+        assert auxiliary_weight == 0, (
+            "the auxiliary reward prediction head is wired for the shared network"
+        )
         network = SeparateActorCritic(
             actor=Network(
                 feature_extractor=feature_extractor,
@@ -91,6 +98,16 @@ def make(cfg):
     actor_optimizer = instantiate(cfg.actor_optimizer)
     critic_optimizer = instantiate(cfg.critic_optimizer)
 
+    auxiliary_loss = None
+    if auxiliary_weight > 0:
+
+        def auxiliary_loss(transition):
+            prediction = jax.tree.leaves(transition.aux["intermediates"])[0]
+            target = transition.second.reward
+            return auxiliary_weight * jnp.square(
+                prediction[transition.second.action] - target
+            )
+
     agent = RecurrentACLambda(
         cfg=instantiate(cfg.algorithm),
         env=env,
@@ -98,5 +115,6 @@ def make(cfg):
         network=network,
         actor_optimizer=actor_optimizer,
         critic_optimizer=critic_optimizer,
+        auxiliary_loss=auxiliary_loss,
     )
     return agent
