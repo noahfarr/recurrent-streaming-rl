@@ -49,6 +49,7 @@ register = {
     ("implicit_ac", "brax"): stream_ac_brax.make,
     ("intentional_ac", "minatar"): stream_ac_minatar.make,
     ("intentional_ac", "mujoco"): stream_ac_mujoco.make,
+    ("implicit_ac", "mujoco"): stream_ac_mujoco.make,
     ("adaptive_ac", "minatar"): stream_ac_minatar.make,
 }
 
