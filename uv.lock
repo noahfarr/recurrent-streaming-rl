@@ -2261,7 +2261,7 @@ wheels = [
 [[package]]
 name = "streamlet"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/noahfarr/streamlet.git#2f9d9d30f7dffad6a181ef1143c75fc6262c85bd" }
+source = { git = "ssh://git@github.com/noahfarr/streamlet.git#fab6bf41473c59c81520a60e810bf0baad012340" }
 dependencies = [
     { name = "animax" },
     { name = "brax" },

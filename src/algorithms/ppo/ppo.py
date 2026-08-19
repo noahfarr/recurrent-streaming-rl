@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Callable
 
 import flax.linen as nn
 import jax
@@ -59,6 +59,8 @@ class PPO:
     critic_network: nn.Module
     actor_optimizer: optax.GradientTransformation
     critic_optimizer: optax.GradientTransformation
+    actor_auxiliary_loss: Callable | None = None
+    critic_auxiliary_loss: Callable | None = None
 
     def __post_init__(self):
         assert (
@@ -173,7 +175,16 @@ class PPO:
                 )
                 * advantages,
             ).mean()
-            return actor_loss - self.cfg.entropy_coefficient * entropy, (
+            loss = actor_loss - self.cfg.entropy_coefficient * entropy
+            if self.actor_auxiliary_loss is not None:
+                loss = loss + self.actor_auxiliary_loss(
+                    params=params,
+                    apply=lambda p: self.apply(
+                        self.actor_network, p, initial_carry, transitions.first
+                    ),
+                    transitions=transitions,
+                )
+            return loss, (
                 entropy.mean(),
                 approximate_kl.mean(),
                 clip_fraction.mean(),
@@ -225,7 +236,16 @@ class PPO:
                 )
                 clipped_critic_loss = jnp.square(clipped_value - returns)
                 critic_loss = jnp.maximum(critic_loss, clipped_critic_loss)
-            return critic_loss.mean(), values
+            loss = critic_loss.mean()
+            if self.critic_auxiliary_loss is not None:
+                loss = loss + self.critic_auxiliary_loss(
+                    params=params,
+                    apply=lambda p: self.apply(
+                        self.critic_network, p, initial_carry, transitions.first
+                    ),
+                    transitions=transitions,
+                )
+            return loss, values
 
         (critic_loss, values), critic_grads = jax.value_and_grad(
             critic_loss_fn, has_aux=True

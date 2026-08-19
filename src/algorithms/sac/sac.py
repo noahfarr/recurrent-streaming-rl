@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Callable
 
 import flax.linen as nn
 import jax
@@ -69,6 +69,8 @@ class SAC:
     critic_optimizer: optax.GradientTransformation
     alpha_optimizer: optax.GradientTransformation
     buffer: Any
+    actor_auxiliary_loss: Callable | None = None
+    critic_auxiliary_loss: Callable | None = None
 
     def __post_init__(self):
         assert (
@@ -169,6 +171,14 @@ class SAC:
             )
             td_error = qs - target_q[..., None]
             critic_loss = 0.5 * jnp.square(td_error).sum(axis=-1).mean()
+            if self.critic_auxiliary_loss is not None:
+                critic_loss = critic_loss + self.critic_auxiliary_loss(
+                    params=critic_params,
+                    apply=lambda p: jax.vmap(
+                        self.critic_network.apply, in_axes=(None, 0, 0, 0, 0, 0)
+                    )(p, critic_carry, first.obs, second.action, first.reward, first.done),
+                    transitions=experience,
+                )
             return critic_loss, qs
 
         (critic_loss, qs), grads = jax.value_and_grad(critic_loss_fn, has_aux=True)(
@@ -214,6 +224,14 @@ class SAC:
             )
             q = jnp.min(qs, axis=-1)
             actor_loss = (alpha * log_probs - q).mean()
+            if self.actor_auxiliary_loss is not None:
+                actor_loss = actor_loss + self.actor_auxiliary_loss(
+                    params=actor_params,
+                    apply=lambda p: jax.vmap(
+                        self.actor_network.apply, in_axes=(None, 0, 0, 0, 0, 0)
+                    )(p, actor_carry, *first),
+                    transitions=experience,
+                )
             return actor_loss, log_probs
 
         (actor_loss, log_probs), grads = jax.value_and_grad(
