@@ -28,6 +28,7 @@ register = {
     ("qrc", "popgymnax"): qrc_popgymnax.make,
     ("qrc", "minatar"): qrc_minatar.make,
     ("stream_q", "popgymnax"): stream_q_popgymnax.make,
+    ("implicit_q", "popgymnax"): stream_q_popgymnax.make,
     ("stream_q", "minatar"): stream_q_minatar.make,
     ("intentional_q", "minatar"): stream_q_minatar.make,
     ("adaptive_q", "minatar"): stream_q_minatar.make,
