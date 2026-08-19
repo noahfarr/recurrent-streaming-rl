@@ -1,3 +1,5 @@
+from functools import partial
+
 import flax.linen as nn
 import jax.numpy as jnp
 import optax
@@ -27,56 +29,45 @@ def make(cfg):
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
     num_actions = env.action_space(env_params).n
+    dtype = jnp.dtype(cfg.get("precision", "float32"))
+    conv = partial(
+        nn.Conv,
+        padding="VALID",
+        kernel_init=sparse(sparsity=0.9),
+        dtype=dtype,
+        param_dtype=jnp.float32,
+    )
+    norm = partial(
+        nn.LayerNorm,
+        use_bias=False,
+        use_scale=False,
+        epsilon=1e-5,
+        dtype=dtype,
+        param_dtype=jnp.float32,
+    )
     feature_extractor = FeatureExtractor(
         observation_extractor=nn.Sequential(
             [
-                lambda x: jnp.moveaxis(x, -3, -1),
-                nn.Conv(
-                    32,
-                    kernel_size=(8, 8),
-                    strides=(5, 5),
-                    padding="VALID",
-                    kernel_init=sparse(sparsity=0.9),
-                ),
-                nn.LayerNorm(
-                    use_bias=False,
-                    use_scale=False,
-                    epsilon=1e-5,
-                    reduction_axes=(-3, -2, -1),
-                ),
+                lambda x: jnp.moveaxis(x, -3, -1).astype(dtype),
+                conv(32, kernel_size=(8, 8), strides=(5, 5)),
+                norm(reduction_axes=(-3, -2, -1)),
                 nn.leaky_relu,
-                nn.Conv(
-                    64,
-                    kernel_size=(4, 4),
-                    strides=(3, 3),
-                    padding="VALID",
-                    kernel_init=sparse(sparsity=0.9),
-                ),
-                nn.LayerNorm(
-                    use_bias=False,
-                    use_scale=False,
-                    epsilon=1e-5,
-                    reduction_axes=(-3, -2, -1),
-                ),
+                conv(64, kernel_size=(4, 4), strides=(3, 3)),
+                norm(reduction_axes=(-3, -2, -1)),
                 nn.leaky_relu,
-                nn.Conv(
-                    64,
-                    kernel_size=(3, 3),
-                    strides=(2, 2),
-                    padding="VALID",
-                    kernel_init=sparse(sparsity=0.9),
-                ),
-                nn.LayerNorm(
-                    use_bias=False,
-                    use_scale=False,
-                    epsilon=1e-5,
-                    reduction_axes=(-3, -2, -1),
-                ),
+                conv(64, kernel_size=(3, 3), strides=(2, 2)),
+                norm(reduction_axes=(-3, -2, -1)),
                 nn.leaky_relu,
                 Flatten(start_dim=-3, end_dim=-1),
-                nn.Dense(256, kernel_init=sparse(sparsity=0.9)),
-                nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                nn.Dense(
+                    256,
+                    kernel_init=sparse(sparsity=0.9),
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
+                norm(),
                 nn.leaky_relu,
+                lambda x: x.astype(jnp.float32),
             ]
         ),
     )
