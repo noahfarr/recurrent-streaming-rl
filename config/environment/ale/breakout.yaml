@@ -1,3 +1,5 @@
 namespace: ale
 suite: ale
 env_id: breakout
+kwargs:
+  episodic_life: true
