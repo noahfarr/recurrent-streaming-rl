@@ -10,7 +10,7 @@ from streamlet.environments.wrappers import (
 from streamlet.networks import sparse
 
 from src.environments import environment
-from src.networks import Ravel, build_cell, heads, infer_feature_dim
+from src.networks import Ravel, build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network, SeparateActorCritic
 
@@ -21,20 +21,33 @@ def make(cfg):
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
     num_actions = env.action_space(env_params).n
+    dtype = compute_dtype(cfg)
 
     def make_feature_extractor():
         return FeatureExtractor(
             observation_extractor=nn.Sequential(
                 [
-                    nn.Dense(64, kernel_init=sparse(sparsity=0.9)),
-                    nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                    lambda x: x.astype(dtype),
+                    nn.Dense(
+                        64,
+                        kernel_init=sparse(sparsity=0.9),
+                        dtype=dtype,
+                        param_dtype=jnp.float32,
+                    ),
+                    nn.LayerNorm(
+                        use_bias=False,
+                        use_scale=False,
+                        epsilon=1e-5,
+                        dtype=dtype,
+                        param_dtype=jnp.float32,
+                    ),
                     nn.leaky_relu,
                 ]
             ),
             action_extractor=lambda action: jax.nn.one_hot(
-                action, num_classes=num_actions
+                action, num_classes=num_actions, dtype=dtype
             ),
-            reward_extractor=lambda reward: reward[..., None],
+            reward_extractor=lambda reward: reward[..., None].astype(dtype),
         )
 
     feature_extractor = make_feature_extractor()
@@ -48,9 +61,11 @@ def make(cfg):
     )
 
     actor_head = heads.Categorical(
-        action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+        action_dim=num_actions,
+        kernel_init=sparse(sparsity=0.9),
+        dtype=dtype,
     )
-    critic_head = heads.VNetwork(kernel_init=sparse(sparsity=0.9))
+    critic_head = heads.VNetwork(kernel_init=sparse(sparsity=0.9), dtype=dtype)
 
     if cfg.network == "shared":
         network = Network(

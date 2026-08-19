@@ -11,7 +11,7 @@ from streamlet.environments.wrappers import (
 from streamlet.networks import sparse
 
 from src.environments import environment
-from src.networks import build_cell, heads, infer_feature_dim
+from src.networks import build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 from src.networks.flatten import Flatten
 from src.networks.network import Network
@@ -23,19 +23,41 @@ def make(cfg):
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
     num_actions = env.action_space(env_params).n
+    dtype = compute_dtype(cfg)
     feature_extractor = FeatureExtractor(
         observation_extractor=nn.Sequential(
             [
-                nn.Conv(16, kernel_size=(3, 3), padding="VALID", kernel_init=sparse(sparsity=0.9)),
+                lambda x: x.astype(dtype),
+                nn.Conv(
+                    16,
+                    kernel_size=(3, 3),
+                    padding="VALID",
+                    kernel_init=sparse(sparsity=0.9),
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
                 nn.leaky_relu,
                 Flatten(start_dim=-3, end_dim=-1),
-                nn.Dense(128, kernel_init=sparse(sparsity=0.9)),
-                nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                nn.Dense(
+                    128,
+                    kernel_init=sparse(sparsity=0.9),
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
+                nn.LayerNorm(
+                    use_bias=False,
+                    use_scale=False,
+                    epsilon=1e-5,
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
                 nn.leaky_relu,
             ]
         ),
-        action_extractor=lambda action: jax.nn.one_hot(action, num_classes=num_actions),
-        reward_extractor=lambda reward: reward[..., None],
+        action_extractor=lambda action: jax.nn.one_hot(
+            action, num_classes=num_actions, dtype=dtype
+        ),
+        reward_extractor=lambda reward: reward[..., None].astype(dtype),
     )
 
     feature_dim = infer_feature_dim(
@@ -52,14 +74,14 @@ def make(cfg):
         feature_extractor=feature_extractor,
         cell=cell,
         head=heads.QNetwork(
-            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+            action_dim=num_actions, kernel_init=sparse(sparsity=0.9), dtype=dtype
         ),
     )
     h_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
         head=heads.QNetwork(
-            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+            action_dim=num_actions, kernel_init=sparse(sparsity=0.9), dtype=dtype
         ),
     )
 

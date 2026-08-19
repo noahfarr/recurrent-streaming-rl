@@ -14,5 +14,3 @@ epsilon_fraction: 0.05
 
 total_timesteps: 50_000_000
 num_epochs: 50
-
-precision: float32

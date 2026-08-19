@@ -10,7 +10,7 @@ from streamlet.environments.wrappers import (
 from src.algorithms.sac import SAC
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
-from src.networks import Network, build_cell, heads, infer_feature_dim
+from src.networks import Network, build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 
 
@@ -20,14 +20,21 @@ def make(cfg):
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
+    dtype = compute_dtype(cfg)
     feature_extractor = FeatureExtractor(
         observation_extractor=lambda obs: nn.Sequential(
             (
-                nn.Dense(256, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
+                lambda x: x.astype(dtype),
+                nn.Dense(
+                    256,
+                    kernel_init=nn.initializers.orthogonal(jnp.sqrt(2)),
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
                 nn.relu,
             )
         )(obs),
-        action_extractor=lambda action: action,
+        action_extractor=lambda action: action.astype(dtype),
     )
 
     feature_dim = infer_feature_dim(
@@ -49,7 +56,9 @@ def make(cfg):
             head=heads.SquashedGaussian(
                 action_dim=action_dim,
                 kernel_init=nn.initializers.orthogonal(0.01),
+                dtype=dtype,
             ),
+            dtype=dtype,
         ),
     )
 
@@ -66,8 +75,12 @@ def make(cfg):
                 in_axes=None,
                 out_axes=-1,
                 axis_size=num_critics,
-            )(action_dim=1, kernel_init=nn.initializers.orthogonal(1.0))(
-                heads.Projection(features=256)(x)
+            )(
+                action_dim=1,
+                kernel_init=nn.initializers.orthogonal(1.0),
+                dtype=dtype,
+            )(
+                heads.Projection(features=256, dtype=dtype)(x)
             ),
             axis=-2,
         ),

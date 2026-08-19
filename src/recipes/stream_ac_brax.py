@@ -10,7 +10,7 @@ from streamlet.networks import sparse
 
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
-from src.networks import Ravel, build_cell, heads, infer_feature_dim
+from src.networks import Ravel, build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.network import Network, SeparateActorCritic
 
 
@@ -19,12 +19,25 @@ def make(cfg):
     env = ClipActionWrapper(env)
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
+    dtype = compute_dtype(cfg)
 
     def make_feature_extractor():
         return lambda obs, action, reward, done: nn.Sequential(
             (
-                nn.Dense(features=64, kernel_init=sparse(sparsity=0.9)),
-                nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                lambda x: x.astype(dtype),
+                nn.Dense(
+                    features=64,
+                    kernel_init=sparse(sparsity=0.9),
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
+                nn.LayerNorm(
+                    use_bias=False,
+                    use_scale=False,
+                    epsilon=1e-5,
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
+                ),
                 nn.tanh,
             )
         )(obs)
@@ -46,6 +59,7 @@ def make(cfg):
             action_dim=action_dim,
             kernel_init=nn.initializers.orthogonal(0.01),
             bias_init=nn.initializers.constant(0.0),
+            dtype=dtype,
         ),
     )
     critic_head = heads.Projection(
@@ -54,6 +68,7 @@ def make(cfg):
         head=heads.VNetwork(
             kernel_init=nn.initializers.orthogonal(1.0),
             bias_init=nn.initializers.constant(0.0),
+            dtype=dtype,
         ),
     )
 

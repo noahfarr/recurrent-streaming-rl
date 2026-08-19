@@ -10,7 +10,7 @@ from streamlet.environments.wrappers import (
 from streamlet.networks import sparse
 
 from src.environments import environment
-from src.networks import build_cell, heads, infer_feature_dim
+from src.networks import build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.network import Network
 
 
@@ -18,10 +18,23 @@ def make(cfg):
     env, env_params = environment.make(**cfg.environment)
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
+    dtype = compute_dtype(cfg)
     feature_extractor = lambda obs, action, reward, done: nn.Sequential(
         (
-            nn.Dense(features=128, kernel_init=sparse(sparsity=0.9)),
-            nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+            lambda x: x.astype(dtype),
+            nn.Dense(
+                features=128,
+                kernel_init=sparse(sparsity=0.9),
+                dtype=dtype,
+                param_dtype=jnp.float32,
+            ),
+            nn.LayerNorm(
+                use_bias=False,
+                use_scale=False,
+                epsilon=1e-5,
+                dtype=dtype,
+                param_dtype=jnp.float32,
+            ),
             nn.leaky_relu,
         )
     )(obs)
@@ -38,14 +51,18 @@ def make(cfg):
         feature_extractor=feature_extractor,
         cell=cell,
         head=heads.QNetwork(
-            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+            action_dim=num_actions,
+            kernel_init=sparse(sparsity=0.9),
+            dtype=dtype,
         ),
     )
     h_network = Network(
         feature_extractor=feature_extractor,
         cell=cell,
         head=heads.QNetwork(
-            action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+            action_dim=num_actions,
+            kernel_init=sparse(sparsity=0.9),
+            dtype=dtype,
         ),
     )
     epsilon_schedule = optax.linear_schedule(

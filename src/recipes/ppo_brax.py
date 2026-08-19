@@ -9,7 +9,7 @@ from streamlet.environments.wrappers import (
 from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
 from src.environments.wrappers import ClipActionWrapper
-from src.networks import build_cell, heads, infer_feature_dim
+from src.networks import build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.network import Network
 
 
@@ -19,9 +19,16 @@ def make(cfg):
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
+    dtype = compute_dtype(cfg)
     feature_extractor = lambda obs, action, reward, done: nn.Sequential(
         (
-            nn.Dense(64, kernel_init=nn.initializers.orthogonal(jnp.sqrt(2))),
+            lambda x: x.astype(dtype),
+            nn.Dense(
+                64,
+                kernel_init=nn.initializers.orthogonal(jnp.sqrt(2)),
+                dtype=dtype,
+                param_dtype=jnp.float32,
+            ),
             nn.tanh,
         )
     )(obs)
@@ -43,6 +50,7 @@ def make(cfg):
             head=heads.Gaussian(
                 action_dim=env.action_space(env_params).shape[0],
                 kernel_init=nn.initializers.orthogonal(0.01),
+                dtype=dtype,
             ),
         ),
     )
@@ -51,7 +59,9 @@ def make(cfg):
         cell=cell,
         head=heads.Projection(
             features=64,
-            head=heads.VNetwork(kernel_init=nn.initializers.orthogonal(1.0)),
+            head=heads.VNetwork(
+                kernel_init=nn.initializers.orthogonal(1.0), dtype=dtype
+            ),
         ),
     )
 

@@ -4,6 +4,7 @@ num_episodes: 0
 learning_starts: 0
 seed: 0
 num_seeds: 1
+precision: float32
 
 groups: ${groups:}
 

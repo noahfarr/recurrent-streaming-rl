@@ -11,7 +11,7 @@ from streamlet.environments.wrappers import (
 
 from src.algorithms.ppo.ppo import PPO
 from src.environments import environment
-from src.networks import build_cell, heads, infer_feature_dim
+from src.networks import build_cell, compute_dtype, heads, infer_feature_dim
 from src.networks.feature_extractor import FeatureExtractor
 from src.networks.network import Network
 
@@ -22,19 +22,25 @@ def make(cfg):
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
 
     num_actions = env.action_space(env_params).n
+    dtype = compute_dtype(cfg)
     feature_extractor = FeatureExtractor(
         observation_extractor=nn.Sequential(
             [
+                lambda x: x.astype(dtype),
                 nn.Dense(
                     64,
                     kernel_init=orthogonal(np.sqrt(2)),
                     bias_init=constant(0.0),
+                    dtype=dtype,
+                    param_dtype=jnp.float32,
                 ),
                 nn.tanh,
             ]
         ),
-        action_extractor=lambda action: jax.nn.one_hot(action, num_classes=num_actions),
-        reward_extractor=lambda reward: reward[..., None],
+        action_extractor=lambda action: jax.nn.one_hot(
+            action, num_classes=num_actions, dtype=dtype
+        ),
+        reward_extractor=lambda reward: reward[..., None].astype(dtype),
     )
     feature_dim = infer_feature_dim(
         feature_extractor,
@@ -49,10 +55,12 @@ def make(cfg):
         action_dim=num_actions,
         kernel_init=orthogonal(0.01),
         bias_init=constant(0.0),
+        dtype=dtype,
     )
     critic_head = heads.VNetwork(
         kernel_init=orthogonal(1.0),
         bias_init=constant(0.0),
+        dtype=dtype,
     )
     actor_network = Network(
         feature_extractor=feature_extractor, cell=cell, head=actor_head

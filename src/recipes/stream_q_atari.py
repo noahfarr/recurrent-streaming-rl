@@ -67,7 +67,6 @@ def make(cfg):
                 ),
                 norm(),
                 nn.leaky_relu,
-                lambda x: x.astype(jnp.float32),
             ]
         ),
     )
@@ -87,7 +86,9 @@ def make(cfg):
             feature_extractor=feature_extractor,
             cell=cell,
             head=heads.QNetwork(
-                action_dim=num_actions, kernel_init=sparse(sparsity=0.9)
+                action_dim=num_actions,
+                kernel_init=sparse(sparsity=0.9),
+                dtype=dtype,
             ),
         )
     )
