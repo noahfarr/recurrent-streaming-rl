@@ -10,6 +10,7 @@ from flax.linen.initializers import lecun_normal, zeros_init
 
 from src.utils.typing import Array
 
+from .injection import inject, inject_diagonal, inject_rank1
 from .rnn import RNN
 
 _PARAM_NAMES = (
@@ -59,18 +60,8 @@ class GRUCell(RNNCellBase):
             (H, F), (H, H), (H,),
         )
 
-    def _split_params(self, flat):
-        shapes = self._param_shapes()
-        offsets = []
-        total = 0
-        for shape in shapes[:-1]:
-            total += math.prod(shape)
-            offsets.append(total)
-        parts = jnp.split(flat, offsets, axis=-1)
-        return {
-            name: part.reshape(*flat.shape[:-1], *shape)
-            for name, part, shape in zip(_PARAM_NAMES, parts, shapes)
-        }
+    def _flat_params(self):
+        return jnp.concatenate([leaf.reshape(-1) for leaf in self._params()])
 
     @property
     def unit_index(self):
@@ -124,19 +115,7 @@ class GRUCell(RNNCellBase):
         return jnp.concatenate([leaf.reshape(-1) for leaf in vjp_fn(cotangent)])
 
     def inject_influence(self, carry: Array, influence):
-        def fn(mdl, h, influence):
-            return h
-
-        def forward_fn(mdl, h, influence):
-            return h, influence
-
-        def backward_fn(influence, tangent):
-            g_params = self._split_params(tangent @ influence)
-            return {"params": g_params}, tangent, None
-
-        return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
-            self, carry, influence
-        )
+        return inject("ip,p->i", carry, self._flat_params(), influence)
 
     @staticmethod
     def _unit_step(
@@ -164,36 +143,11 @@ class GRUCell(RNNCellBase):
         return new_carry, state_jacobian_diagonal, parameter_jacobian_diagonal
 
     def inject_influence_rank1(self, carry: Array, u, v):
-        def fn(mdl, h, u, v):
-            return h
-
-        def forward_fn(mdl, h, u, v):
-            return h, (u, v)
-
-        def backward_fn(residual, tangent):
-            u, v = residual
-            g_params = self._split_params((tangent @ u) * v)
-            return {"params": g_params}, tangent, None, None
-
-        return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
-            self, carry, u, v
-        )
+        return inject_rank1(carry, self._flat_params(), u, v)
 
     def inject_influence_diagonal(self, carry: Array, influence):
-        unit_index = self.unit_index
-
-        def fn(mdl, h, influence):
-            return h
-
-        def forward_fn(mdl, h, influence):
-            return h, influence
-
-        def backward_fn(influence, tangent):
-            g_params = self._split_params(tangent[unit_index] * influence)
-            return {"params": g_params}, tangent, None
-
-        return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
-            self, carry, influence
+        return inject_diagonal(
+            carry, self._flat_params(), influence, self.unit_index
         )
 
     @nn.nowrap

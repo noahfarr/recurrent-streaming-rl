@@ -12,6 +12,7 @@ from flax.linen import RNNCellBase
 
 from src.utils.typing import Array
 
+from .injection import inject
 from .rnn import RNN
 
 
@@ -170,39 +171,27 @@ class GTUCell(RNNCellBase):
     def propagate_influence(self, state_jacobian, influence):
         return jnp.einsum("icd,dik->cik", state_jacobian, influence)
 
-    def _split_params(self, flat):
-        F = self.config.features
-        return {
-            "nu_log": flat[..., 0],
-            "theta_log": flat[..., 1],
-            "gate_bias": flat[..., 2],
-            "gate_kernel": flat[..., 3 : 3 + F],
-            "B_real": flat[..., 3 + F : 3 + 2 * F],
-            "B_imag": flat[..., 3 + 2 * F : 3 + 3 * F],
-        }
+    def _flat_params(self):
+        return jnp.concatenate(
+            [
+                self.nu_log[:, None],
+                self.theta_log[:, None],
+                self.gate_bias[:, None],
+                self.gate_kernel,
+                self.B_real,
+                self.B_imag,
+            ],
+            axis=-1,
+        )
 
     def inject_influence(self, carry, influence):
-
-        def fn(mdl, r, i, influence):
-            return r, i
-
-        def forward_fn(mdl, real, imag, influence):
-            return (real, imag), influence
-
-        def backward_fn(influence, tangents):
-            g_real, g_imag = tangents
-            tangent = jnp.stack([g_real, g_imag])
-            g_params = self._split_params(
-                jnp.einsum("ci,cik->ik", tangent, influence)
-            )
-            return {"params": g_params}, g_real, g_imag, None
-
-        real, imag = nn.custom_vjp(
-            fn=fn,
-            forward_fn=forward_fn,
-            backward_fn=backward_fn,
-        )(self, carry.real, carry.imaginary, influence)
-        return GTUCarry(real=real, imaginary=imag)
+        stacked = inject(
+            "cik,ik->ci",
+            jnp.stack([carry.real, carry.imaginary]),
+            self._flat_params(),
+            influence,
+        )
+        return GTUCarry(real=stacked[0], imaginary=stacked[1])
 
     @nn.nowrap
     def initialize_carry(self, key, input_shape):

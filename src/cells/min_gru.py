@@ -9,6 +9,7 @@ from flax.linen.initializers import lecun_normal, zeros_init
 
 from src.utils.typing import Array
 
+from .injection import inject
 from .rnn import RNN
 
 _PARAM_NAMES = ("W_z", "b_z", "W_h", "b_h")
@@ -73,14 +74,10 @@ class MinGRUCell(RNNCellBase):
     def output(self, carry: Array) -> Array:
         return self.config.output_activation_fn(carry)
 
-    def _split_params(self, flat):
-        F = self.config.features
-        return {
-            "W_z": flat[..., :F],
-            "b_z": flat[..., F],
-            "W_h": flat[..., F + 1 : 2 * F + 1],
-            "b_h": flat[..., 2 * F + 1],
-        }
+    def _flat_params(self):
+        return jnp.concatenate(
+            [self.W_z, self.b_z[:, None], self.W_h, self.b_h[:, None]], axis=-1
+        )
 
     def local_jacobian(self, carry: Array, inputs: Array, **kwargs):
         params = jax.lax.stop_gradient(self._params())
@@ -110,19 +107,7 @@ class MinGRUCell(RNNCellBase):
         return state_jacobian[:, None] * influence
 
     def inject_influence(self, carry: Array, influence):
-        def fn(mdl, h, influence):
-            return h
-
-        def forward_fn(mdl, h, influence):
-            return h, influence
-
-        def backward_fn(influence, tangent):
-            g_params = self._split_params(tangent[:, None] * influence)
-            return {"params": g_params}, tangent, None
-
-        return nn.custom_vjp(fn=fn, forward_fn=forward_fn, backward_fn=backward_fn)(
-            self, carry, influence
-        )
+        return inject("ik,ik->i", carry, self._flat_params(), influence)
 
     @nn.nowrap
     def initialize_carry(self, key, input_shape):
