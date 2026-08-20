@@ -2,4 +2,6 @@ namespace: ale
 suite: ale
 env_id: breakout
 kwargs:
-  episodic_life: true
+  episodic_life: false
+wrappers:
+  - _target_: src.environments.wrappers.EpisodicLife

@@ -11,6 +11,7 @@ from src.utils.typing import Array
 @struct.dataclass
 class AleState:
     handle: Array
+    lives: Array
 
 
 class AleEnvironment:
@@ -19,6 +20,7 @@ class AleEnvironment:
             game=game,
             num_envs=1,
             reward_clipping=False,
+            life_loss_info=False,
             **kwargs,
         )
         handle, xla_reset, xla_step = self._env.xla()
@@ -37,19 +39,20 @@ class AleEnvironment:
         handle, (obs, info) = self._xla_reset(
             jnp.asarray(self._initial_handle), seed=seed
         )
-        return obs[0], AleState(handle=handle)
+        return obs[0], AleState(handle=handle, lives=info["lives"][0])
 
     def step(self, key, state, action, params=None):
         handle, (obs, reward, terminated, truncated, info) = self._xla_step(
             state.handle, jnp.asarray(action, jnp.int32)[None]
         )
         done = jnp.logical_or(terminated[0], truncated[0])
+        lives = info["lives"][0]
         return (
             obs[0],
-            AleState(handle=handle),
+            AleState(handle=handle, lives=lives),
             jnp.asarray(reward[0], jnp.float32),
             done,
-            {},
+            {"lives": lives},
         )
 
     def action_space(self, params=None):
