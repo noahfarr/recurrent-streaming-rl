@@ -21,7 +21,7 @@ defaults:
   - environment: popgymnax/repeat_first/easy
   - cell: ffn
   - mode: bptt
-  - network: shared
+  - network: separate
   - logger: default
   - experiment: null
   - optional hyperparameters: ${cascading_fallback:hyperparameters,${algorithm},${environment},${cell}}
