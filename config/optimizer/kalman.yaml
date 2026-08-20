@@ -11,3 +11,5 @@ cfg:
   eps: 1e-8
   diagonal: false
   prior_scale: 1.0
+  sigma_mode: residual
+  precondition: false
