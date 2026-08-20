@@ -10,7 +10,6 @@ algorithm:
   gamma: 0.99
   alpha: 0.01
   trace_lambda: 0.8
-  memory_decay: 0.9
   memory_coefficient: 1.0
 
 actor_optimizer:
