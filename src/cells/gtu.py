@@ -130,7 +130,7 @@ class GTUCell(RNNCellBase):
         )
 
         new_carry = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, 0, 0, None))(
-            jax.lax.stop_gradient(carry),
+            carry,
             *jax.lax.stop_gradient(params),
             inputs,
         )

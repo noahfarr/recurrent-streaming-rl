@@ -23,7 +23,7 @@ def test_rtrl_gradient_matches_bptt(cell_fixture, T, request):
         carry = rtrl.initialize_carry(key, xs.shape[1:])
         total = 0.0
         for x in xs:
-            carry, out = rtrl.apply(params, carry, x)
+            carry, out = rtrl.apply(params, jax.lax.stop_gradient(carry), x)
             total = total + jnp.sum(out**2)
         return total
 

@@ -106,7 +106,7 @@ class RTUCell(RNNCellBase):
         carry = jnp.stack([carry.real, carry.imaginary], axis=-1)
 
         new_carry = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, None))(
-            jax.lax.stop_gradient(carry),
+            carry,
             *jax.lax.stop_gradient(
                 (self.nu_log, self.theta_log, self.B_real, self.B_imag)
             ),

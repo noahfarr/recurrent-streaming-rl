@@ -99,7 +99,7 @@ class GRUCell(RNNCellBase):
     def local_jacobian(self, carry: Array, inputs: Array, **kwargs):
         H = self.config.hidden_dim
         params = jax.lax.stop_gradient(self._params())
-        new_carry = self._step(jax.lax.stop_gradient(carry), *params, inputs)
+        new_carry = self._step(carry, *params, inputs)
         jacobians = jax.jacrev(self._step, argnums=tuple(range(10)))(
             carry, *params, inputs
         )

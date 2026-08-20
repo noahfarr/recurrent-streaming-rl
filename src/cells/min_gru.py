@@ -93,7 +93,7 @@ class MinGRUCell(RNNCellBase):
             jacobians
         )
         new_carry = jax.vmap(self._unit_step, in_axes=(0, 0, 0, 0, 0, None))(
-            h, *params, inputs
+            carry, *params, inputs
         )
         parameter_jacobian = jnp.concatenate(
             [
