@@ -5,3 +5,5 @@ kwargs:
   episodic_life: false
 wrappers:
   - _target_: src.environments.wrappers.EpisodicLife
+  - _target_: src.environments.wrappers.FireReset
+    fire_action: 1
