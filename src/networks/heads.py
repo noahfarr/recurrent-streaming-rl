@@ -197,6 +197,24 @@ class C51(nn.Module):
         )(jnp.concatenate([x, action], axis=-1))
 
 
+class ContinuousQNetwork(nn.Module):
+    kernel_init: nn.initializers.Initializer = nn.initializers.lecun_normal()
+    bias_init: nn.initializers.Initializer = nn.initializers.zeros_init()
+    dtype: Dtype | None = None
+    param_dtype: Dtype = jnp.float32
+
+    @nn.compact
+    def __call__(self, x: Array, action: Array, **kwargs) -> Array:
+        q = nn.Dense(
+            1,
+            kernel_init=self.kernel_init,
+            bias_init=self.bias_init,
+            dtype=self.dtype,
+            param_dtype=self.param_dtype,
+        )(jnp.concatenate([x, action], axis=-1))
+        return q.astype(jnp.float32)
+
+
 class Alpha(nn.Module):
     initial_alpha: float = 1.0
 

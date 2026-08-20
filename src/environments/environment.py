@@ -2,12 +2,13 @@ from hydra.utils import instantiate
 from streamlet.environments import environment
 from streamlet.environments.wrappers import RecordEpisodeStatistics
 
-from src.environments import ale, brax, popgymnax
+from src.environments import ale, brax, mujoco, popgymnax
 
 registry = {
     "popgymnax": popgymnax.make,
     "brax": brax.make,
     "ale": ale.make,
+    "gymnasium": mujoco.make,
 }
 
 

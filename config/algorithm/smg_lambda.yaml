@@ -1,0 +1,28 @@
+# @package _global_
+
+defaults:
+  - /optimizer@actor_optimizer: obgd
+  - /optimizer@critic_optimizer: obgd
+  - _self_
+
+algorithm:
+  _target_: streamlet.algorithms.SMGLambdaConfig
+  gamma: 0.99
+  alpha: 0.01
+  trace_lambda: 0.8
+  memory_decay: 0.9
+  memory_coefficient: 1.0
+
+actor_optimizer:
+  name: actor_optimizer
+  cfg:
+    lr: 1.0
+    kappa: 3.0
+critic_optimizer:
+  name: critic_optimizer
+  cfg:
+    lr: 1.0
+    kappa: 2.0
+
+total_timesteps: 5_000_000
+num_epochs: 25

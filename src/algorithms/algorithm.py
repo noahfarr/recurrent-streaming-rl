@@ -2,6 +2,7 @@ from hydra.core.hydra_config import HydraConfig
 
 from src.recipes import (
     stream_q_atari,
+    smg_mujoco,
     ppo_brax,
     ppo_classic_control,
     ppo_minatar,
@@ -50,6 +51,7 @@ register = {
     ("implicit_ac", "brax"): stream_ac_brax.make,
     ("intentional_ac", "minatar"): stream_ac_minatar.make,
     ("intentional_ac", "mujoco"): stream_ac_mujoco.make,
+    ("smg_lambda", "mujoco"): smg_mujoco.make,
     ("implicit_ac", "mujoco"): stream_ac_mujoco.make,
     ("adaptive_ac", "minatar"): stream_ac_minatar.make,
 }
@@ -73,6 +75,7 @@ def policy_params(state):
             "intentional_ac": "params",
             "adaptive_ac": "params",
             "implicit_ac": "params",
+            "smg_lambda": "actor_params",
             "stream_q": "params",
             "intentional_q": "params",
             "adaptive_q": "params",
