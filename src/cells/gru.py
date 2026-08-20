@@ -10,7 +10,7 @@ from flax.linen.initializers import lecun_normal, zeros_init
 
 from src.utils.typing import Array
 
-from .injection import inject, inject_diagonal, inject_rank1
+from .injection import custom_jvp
 from .rnn import RNN
 
 _PARAM_NAMES = (
@@ -60,8 +60,8 @@ class GRUCell(RNNCellBase):
             (H, F), (H, H), (H,),
         )
 
-    def _flat_params(self):
-        return jnp.concatenate([leaf.reshape(-1) for leaf in self._params()])
+    def _flatten_params(self, params):
+        return jnp.concatenate([params[name].reshape(-1) for name in _PARAM_NAMES])
 
     @property
     def unit_index(self):
@@ -115,7 +115,18 @@ class GRUCell(RNNCellBase):
         return jnp.concatenate([leaf.reshape(-1) for leaf in vjp_fn(cotangent)])
 
     def inject_influence(self, carry: Array, influence):
-        return inject("ip,p->i", carry, self._flat_params(), influence)
+        def fn(mdl, h, influence):
+            return h
+
+        def jvp_fn(primals, tangents):
+            _, h, influence = primals
+            variable_tangents, carry_tangent, _ = tangents
+            contribution = influence @ self._flatten_params(
+                variable_tangents["params"]
+            )
+            return h, carry_tangent + contribution
+
+        return custom_jvp(fn=fn, jvp_fn=jvp_fn)(self, carry, influence)
 
     @staticmethod
     def _unit_step(
@@ -143,12 +154,34 @@ class GRUCell(RNNCellBase):
         return new_carry, state_jacobian_diagonal, parameter_jacobian_diagonal
 
     def inject_influence_rank1(self, carry: Array, u, v):
-        return inject_rank1(carry, self._flat_params(), u, v)
+        def fn(mdl, h, u, v):
+            return h
+
+        def jvp_fn(primals, tangents):
+            _, h, u, v = primals
+            variable_tangents, carry_tangent, _, _ = tangents
+            contribution = u * (v @ self._flatten_params(variable_tangents["params"]))
+            return h, carry_tangent + contribution
+
+        return custom_jvp(fn=fn, jvp_fn=jvp_fn)(self, carry, u, v)
 
     def inject_influence_diagonal(self, carry: Array, influence):
-        return inject_diagonal(
-            carry, self._flat_params(), influence, self.unit_index
-        )
+        unit_index = self.unit_index
+
+        def fn(mdl, h, influence):
+            return h
+
+        def jvp_fn(primals, tangents):
+            _, h, influence = primals
+            variable_tangents, carry_tangent, _ = tangents
+            contribution = jax.ops.segment_sum(
+                influence * self._flatten_params(variable_tangents["params"]),
+                unit_index,
+                num_segments=self.config.hidden_dim,
+            )
+            return h, carry_tangent + contribution
+
+        return custom_jvp(fn=fn, jvp_fn=jvp_fn)(self, carry, influence)
 
     @nn.nowrap
     def initialize_carry(self, key, input_shape):

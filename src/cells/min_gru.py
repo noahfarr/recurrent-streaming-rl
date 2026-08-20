@@ -9,7 +9,7 @@ from flax.linen.initializers import lecun_normal, zeros_init
 
 from src.utils.typing import Array
 
-from .injection import inject
+from .injection import custom_jvp
 from .rnn import RNN
 
 _PARAM_NAMES = ("W_z", "b_z", "W_h", "b_h")
@@ -74,9 +74,15 @@ class MinGRUCell(RNNCellBase):
     def output(self, carry: Array) -> Array:
         return self.config.output_activation_fn(carry)
 
-    def _flat_params(self):
+    def _flatten_params(self, params):
         return jnp.concatenate(
-            [self.W_z, self.b_z[:, None], self.W_h, self.b_h[:, None]], axis=-1
+            [
+                params["W_z"],
+                params["b_z"][:, None],
+                params["W_h"],
+                params["b_h"][:, None],
+            ],
+            axis=-1,
         )
 
     def local_jacobian(self, carry: Array, inputs: Array, **kwargs):
@@ -107,7 +113,20 @@ class MinGRUCell(RNNCellBase):
         return state_jacobian[:, None] * influence
 
     def inject_influence(self, carry: Array, influence):
-        return inject("ik,ik->i", carry, self._flat_params(), influence)
+        def fn(mdl, h, influence):
+            return h
+
+        def jvp_fn(primals, tangents):
+            _, h, influence = primals
+            variable_tangents, carry_tangent, _ = tangents
+            contribution = jnp.einsum(
+                "ik,ik->i",
+                influence,
+                self._flatten_params(variable_tangents["params"]),
+            )
+            return h, carry_tangent + contribution
+
+        return custom_jvp(fn=fn, jvp_fn=jvp_fn)(self, carry, influence)
 
     @nn.nowrap
     def initialize_carry(self, key, input_shape):

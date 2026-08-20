@@ -13,7 +13,7 @@ from flax.linen import RNNCellBase
 
 from src.utils.typing import Array
 
-from .injection import inject
+from .injection import custom_jvp
 from .rnn import RNN
 
 
@@ -145,25 +145,38 @@ class RTUCell(RNNCellBase):
     def propagate_influence(self, state_jacobian, influence):
         return jnp.einsum("icd,dik->cik", state_jacobian, influence)
 
-    def _flat_params(self):
+    def _flatten_params(self, params):
         return jnp.concatenate(
             [
-                self.nu_log[:, None],
-                self.theta_log[:, None],
-                self.B_real,
-                self.B_imag,
+                params["nu_log"][:, None],
+                params["theta_log"][:, None],
+                params["B_real"],
+                params["B_imag"],
             ],
             axis=-1,
         )
 
     def inject_influence(self, carry, influence):
-        stacked = inject(
-            "cik,ik->ci",
-            jnp.stack([carry.real, carry.imaginary]),
-            self._flat_params(),
-            influence,
+        def fn(mdl, real, imag, influence):
+            return real, imag
+
+        def jvp_fn(primals, tangents):
+            _, real, imag, influence = primals
+            variable_tangents, real_tangent, imag_tangent, _ = tangents
+            contribution = jnp.einsum(
+                "cik,ik->ci",
+                influence,
+                self._flatten_params(variable_tangents["params"]),
+            )
+            return (real, imag), (
+                real_tangent + contribution[0],
+                imag_tangent + contribution[1],
+            )
+
+        real, imag = custom_jvp(fn=fn, jvp_fn=jvp_fn)(
+            self, carry.real, carry.imaginary, influence
         )
-        return RTUCarry(real=stacked[0], imaginary=stacked[1])
+        return RTUCarry(real=real, imaginary=imag)
 
     @nn.nowrap
     def initialize_carry(self, key, input_shape):
