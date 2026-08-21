@@ -19,3 +19,4 @@ sbatch_arguments:
 
 env:
   PYTHONUNBUFFERED: "1"
+  WANDB__SERVICE_WAIT: "300"
