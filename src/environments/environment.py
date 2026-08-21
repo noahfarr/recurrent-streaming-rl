@@ -1,6 +1,6 @@
 from hydra.utils import instantiate
 from streamlet.environments import environment
-from streamlet.environments.wrappers import LogAverageReward, RecordEpisodeStatistics
+from streamlet.environments.wrappers import RecordAverageReward, RecordEpisodeStatistics
 
 from src.environments import ale, brax, mujoco, popgymnax
 
@@ -23,7 +23,7 @@ def make(namespace, env_id, **kwargs):
         env_params = env_params.replace(**(kwargs.get("env_params") or {}))
 
     env = RecordEpisodeStatistics(env)
-    env = LogAverageReward(env)
+    env = RecordAverageReward(env)
     for wrapper in kwargs.get("wrappers", []):
         env = instantiate(wrapper, env)
 
