@@ -6,6 +6,7 @@ seed: 0
 num_seeds: 1
 precision: float32
 auxiliary_loss_weight: 0.0
+time_aware: true
 
 groups: ${groups:}
 

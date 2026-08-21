@@ -19,7 +19,8 @@ def make(cfg):
     env = ClipActionWrapper(env)
     env = NormalizeObservationWrapper(env)
     env = NormalizeRewardWrapper(env, gamma=cfg.algorithm.gamma)
-    env = TimeAwareObservationWrapper(env, time_limit=1000)
+    if cfg.get("time_aware", True):
+        env = TimeAwareObservationWrapper(env, time_limit=1000)
 
     dtype = compute_dtype(cfg)
 
