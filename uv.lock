@@ -342,6 +342,14 @@ wheels = [
 ]
 
 [[package]]
+name = "continual-foragax"
+version = "0.57.1"
+source = { git = "ssh://git@github.com/steventango/continual-foragax.git#dafa3a63c45266eb04c4735e2a3e801ca8ca5681" }
+dependencies = [
+    { name = "gymnax" },
+]
+
+[[package]]
 name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2261,10 +2269,11 @@ wheels = [
 [[package]]
 name = "streamlet"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/noahfarr/streamlet.git#7b4befbc79baaf5b9863e1bf03964513c0e9c4bf" }
+source = { git = "ssh://git@github.com/noahfarr/streamlet.git#240c8185cf58d139fc2bc9155a318618341d63ca" }
 dependencies = [
     { name = "animax" },
     { name = "brax" },
+    { name = "continual-foragax" },
     { name = "craftax" },
     { name = "distrax" },
     { name = "flax" },
