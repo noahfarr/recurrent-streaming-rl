@@ -1,0 +1,5 @@
+namespace: foragax
+suite: foragax
+env_id: ForagaxNeverEndingRelearning-v1
+kwargs:
+  period: 100000

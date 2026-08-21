@@ -15,6 +15,9 @@ class RTRLCarry:
 
 class RTRL(nn.Module):
     cell: nn.Module
+    precondition_power: float = 0.0
+    precondition_eps: float = 1e-8
+    influence_trust_region: float = 0.0
 
     @nn.compact
     def __call__(
@@ -40,7 +43,21 @@ class RTRL(nn.Module):
             + parameter_jacobian
         )
 
-        new_carry = self.cell.inject_influence(new_carry, next_influence)
+        if self.precondition_power:
+            gram = self.cell.influence_gram_diagonal(next_influence)
+            injected = next_influence / jnp.power(
+                gram + self.precondition_eps, self.precondition_power
+            )
+        else:
+            injected = next_influence
+
+        if self.influence_trust_region:
+            norm = jnp.sqrt(jnp.sum(jnp.square(injected)))
+            injected = injected * jnp.minimum(
+                1.0, self.influence_trust_region / (norm + 1e-12)
+            )
+
+        new_carry = self.cell.inject_influence(new_carry, injected)
 
         return RTRLCarry(carry=new_carry, influence=next_influence), self.cell.output(
             new_carry
@@ -91,7 +108,7 @@ class BufferedRTRL(RTRL):
         )
 
 
-def replay_influence(cell, cell_params, buffer, length):
+def replay(cell, cell_params, buffer, length):
     initial_carry = cell.initialize_carry(jax.random.key(0), buffer.shape[-1:])
     initial_influence = cell.initialize_influence(jax.random.key(0), buffer.shape[-1:])
 
@@ -117,12 +134,22 @@ def replay_influence(cell, cell_params, buffer, length):
         influence = jnp.where(active, new_influence, influence)
         return (carry, influence), None
 
-    (_, influence), _ = jax.lax.scan(
+    (carry, influence), _ = jax.lax.scan(
         step,
         (initial_carry, initial_influence),
         (jnp.arange(buffer.shape[0]), buffer),
     )
+    return carry, influence
+
+
+def replay_influence(cell, cell_params, buffer, length):
+    _, influence = replay(cell, cell_params, buffer, length)
     return influence
+
+
+def replay_carry(cell, cell_params, buffer, length):
+    carry, _ = replay(cell, cell_params, buffer, length)
+    return carry
 
 
 def staleness_statistics(online, replay):

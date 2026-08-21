@@ -22,6 +22,11 @@ def make(cfg):
 
     num_actions = env.action_space(env_params).n
 
+    use_layer_norm = cfg.get("layer_norm", True)
+
+    def identity(x):
+        return x
+
     def make_feature_extractor():
         return FeatureExtractor(
             observation_extractor=nn.Sequential(
@@ -37,11 +42,15 @@ def make(cfg):
                         use_scale=False,
                         epsilon=1e-5,
                         reduction_axes=(-3, -2, -1),
-                    ),
+                    )
+                    if use_layer_norm
+                    else identity,
                     nn.leaky_relu,
                     Flatten(start_dim=-3, end_dim=-1),
                     nn.Dense(128, kernel_init=sparse(sparsity=0.9)),
-                    nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5),
+                    nn.LayerNorm(use_bias=False, use_scale=False, epsilon=1e-5)
+                    if use_layer_norm
+                    else identity,
                     nn.leaky_relu,
                 ]
             ),

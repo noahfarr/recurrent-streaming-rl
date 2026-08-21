@@ -142,6 +142,9 @@ class RTUCell(RNNCellBase):
         carry = RTUCarry(real=new_carry[:, 0], imaginary=new_carry[:, 1])
         return carry, state_jacobian, parameter_jacobian
 
+    def influence_gram_diagonal(self, influence):
+        return jnp.sum(jnp.square(influence), axis=0)
+
     def propagate_influence(self, state_jacobian, influence):
         return jnp.einsum("icd,dik->cik", state_jacobian, influence)
 

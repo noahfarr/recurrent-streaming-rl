@@ -1,2 +1,8 @@
-_target_: flax.linen.GRUCell
-features: 192
+_target_: src.cells.GRUCell
+config:
+  _target_: src.cells.GRUConfig
+  features: 64
+  hidden_dim: 192
+  output_activation_fn:
+    _target_: jax.numpy.tanh
+    _partial_: true

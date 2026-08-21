@@ -109,6 +109,9 @@ class MinGRUCell(RNNCellBase):
         )
         return new_carry, state_jacobian, parameter_jacobian
 
+    def influence_gram_diagonal(self, influence):
+        return jnp.square(influence)
+
     def propagate_influence(self, state_jacobian, influence):
         return state_jacobian[:, None] * influence
 

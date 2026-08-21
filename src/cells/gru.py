@@ -100,6 +100,9 @@ class GRUCell(RNNCellBase):
         )
         return new_carry, state_jacobian, parameter_jacobian
 
+    def influence_gram_diagonal(self, influence):
+        return jnp.sum(jnp.square(influence), axis=0)
+
     def propagate_influence(self, state_jacobian, influence):
         return state_jacobian @ influence
 
