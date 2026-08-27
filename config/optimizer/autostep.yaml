@@ -1,0 +1,7 @@
+_target_: streamlet.optimizers.Autostep
+name: ???
+cfg:
+  _target_: streamlet.optimizers.AutostepConfig
+  alpha_init: 0.1
+  mu: 1e-2
+  tau: 1e4

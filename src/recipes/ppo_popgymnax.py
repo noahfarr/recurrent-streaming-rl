@@ -1,5 +1,4 @@
 import flax.linen as nn
-import jax
 import jax.numpy as jnp
 import numpy as np
 from flax.linen.initializers import constant, orthogonal
@@ -37,10 +36,6 @@ def make(cfg):
                 nn.tanh,
             ]
         ),
-        action_extractor=lambda action: jax.nn.one_hot(
-            action, num_classes=num_actions, dtype=dtype
-        ),
-        reward_extractor=lambda reward: reward[..., None].astype(dtype),
     )
     feature_dim = infer_feature_dim(
         feature_extractor,

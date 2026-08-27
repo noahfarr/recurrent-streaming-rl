@@ -44,10 +44,6 @@ def make(cfg):
                     nn.leaky_relu,
                 ]
             ),
-            action_extractor=lambda action: jax.nn.one_hot(
-                action, num_classes=num_actions, dtype=dtype
-            ),
-            reward_extractor=lambda reward: reward[..., None].astype(dtype),
         )
 
     feature_extractor = make_feature_extractor()

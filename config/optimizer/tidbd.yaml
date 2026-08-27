@@ -1,0 +1,10 @@
+_target_: streamlet.optimizers.TIDBD
+name: ???
+cfg:
+  _target_: streamlet.optimizers.TIDBDConfig
+  alpha_init: ???
+  theta: ???
+  beta_min: -20.0
+  beta_max: 2.0
+  kappa: null
+  adapt_paths: null
