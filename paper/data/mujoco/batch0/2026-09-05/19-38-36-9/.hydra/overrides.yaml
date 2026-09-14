@@ -1,0 +1,11 @@
+- algorithm=stream_ac
+- mode=rtrl
+- cell=rtu
+- environment=mujoco/hopper
+- +environment.kwargs.mode=P
+- time_aware=False
+- num_seeds=5
+- seed=5
+- total_timesteps=5000000
+- num_epochs=50
+- logger=file

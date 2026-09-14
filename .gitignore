@@ -224,3 +224,13 @@ __marimo__/
 outputs/
 multirun/
 wandb/
+
+# LaTeX build artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.blg
+*.synctex.gz
+
+# Plot caches
+paper/plots/**/.*.pkl
