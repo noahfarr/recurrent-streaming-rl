@@ -467,7 +467,7 @@ We compare stream RAC($\lambda$) and intentional RAC($\lambda$) \citep{sharifnas
  
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.76\linewidth]{plots/mujoco/learning_curves.pdf}
+    \includegraphics[width=\linewidth]{plots/mujoco/learning_curves.pdf}
     \caption{IQM episodic return with standard error, 10 seeds, on four MuJoCo tasks under masked velocities (\textbf{P}) and masked positions (\textbf{V}). Streaming methods use $\lambda = 0.99$, and \gls{ppo} uses the same network as the streaming agents (Appendix~\ref{sec:hyperparameters}). Solid curves use an \gls{rtu} recurrence, dashed curves the same algorithm with a feedforward network. Intentional RAC($\lambda$) uses the trace-estimated preconditioner and $\eta_\pi = 0.01$ (Appendix~\ref{sec:stepsize}).}
     \vspace{-0.3cm}
     \label{fig:brax}
@@ -503,7 +503,7 @@ and with recurrent \gls{ppo}, ahead on two, behind on two and indistinguishable 
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.80\linewidth]{plots/foragax/foragax_body.pdf}
+    \includegraphics[width=\linewidth]{plots/foragax/foragax_body.pdf}
     \caption{Continual foraging, 10 seeds. Left and centre compare the algorithms under
     \gls{rtu}: the reward rate, an exponential moving average that tracks current performance,
     and the average reward over the agent's lifetime, the statistic of \citet{tang2026forager}.

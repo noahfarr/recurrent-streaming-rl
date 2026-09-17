@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import numpy as np
 import seaborn as sns
 import wandb
@@ -197,8 +198,10 @@ def main():
     figure, axes = plt.subplots(
         len(MODES), len(TASKS),
         figsize=(FIG_WIDTH, SUBPLOT_HEIGHT * 1.42 * len(MODES)),
+        sharex=True,
         constrained_layout=True,
     )
+    figure.get_layout_engine().set(w_pad=0.01, h_pad=0.01, wspace=0.03, hspace=0.04)
     for row, mode in enumerate(MODES):
         for column, task in enumerate(TASKS):
             axis = axes[row, column]
@@ -215,9 +218,9 @@ def main():
             axis.set_axisbelow(True)
             axis.tick_params(labelsize=tick_size)
             axis.set_xticks([0, 2.5, 5])
+            axis.yaxis.set_major_locator(MaxNLocator(nbins=3, min_n_ticks=3))
             for spine in axis.spines.values():
                 spine.set_linewidth(plt.rcParams["axes.linewidth"])
-            axis.set_box_aspect(0.66)
     handles = [plt.Line2D([], [], color=COLOURS[a], linewidth=1.0, label=LABELS[a])
                for a in ALGORITHMS]
     handles += [plt.Line2D([], [], color="0.35", linewidth=1.0, label="RTU"),

@@ -134,6 +134,7 @@ def body_figure(records, label_size, tick_size):
     figure, axes = plt.subplots(
         1, 3, figsize=(FIG_WIDTH, FIG_WIDTH / 3 * 0.90), constrained_layout=True
     )
+    figure.get_layout_engine().set(w_pad=0.01, h_pad=0.01, wspace=0.03)
 
     for axis, index in zip(axes[:2], (1, 2)):
         for boundary in range(PERIOD, TOTAL_TIMESTEPS, PERIOD):
