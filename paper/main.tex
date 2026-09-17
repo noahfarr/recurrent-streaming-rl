@@ -440,7 +440,7 @@ unresolved.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.76\linewidth]{plots/popgym/learning_curves.pdf}
+    \includegraphics[width=\linewidth]{plots/popgym/learning_curves.pdf}
     \caption{IQM episodic return over 10 seeds, normalised per task so that $0$ is the minimum return and $1$ the return of an optimal policy, with standard error on eleven POPGym tasks, and each curve starts at the return of the freshly initialised policy. Solid curves use an \gls{rtu} recurrence, dashed curves the same algorithm with a feedforward network.}
     \label{fig:popgym}
 \end{figure}
@@ -1010,7 +1010,7 @@ recurrence, so the cell and the benchmark remain confounded there alone.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.82\linewidth]{plots/popgym/learning_curves_mingru.pdf}
+    \includegraphics[width=\linewidth]{plots/popgym/learning_curves_mingru.pdf}
     \caption{POPGym with a minGRU recurrence, otherwise identical to
     Figure~\ref{fig:popgym}. Normalised IQM episodic return over 10 seeds with standard error,
     with dashed curves giving the same algorithms with a feedforward network.}
@@ -1019,7 +1019,7 @@ recurrence, so the cell and the benchmark remain confounded there alone.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.82\linewidth]{plots/popgym/learning_curves_ffn.pdf}
+    \includegraphics[width=\linewidth]{plots/popgym/learning_curves_ffn.pdf}
     \caption{POPGym with a memoryless network, otherwise identical to
     Figure~\ref{fig:popgym}. These runs are what the per-task memoryless ceilings of
     Section~\ref{sec:popgym} are estimated from on the two cartpole variants.}
