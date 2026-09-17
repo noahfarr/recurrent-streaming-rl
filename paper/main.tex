@@ -406,7 +406,7 @@ sufficient, however, since the credit horizon $(1-\rho)^{-1}$ exceeds the observ
 cell of every grid, by factors from $1.5$ to nearly $400$. The choice of cell matters
 independently of the gradient method, and freezing the recurrence at initialisation solves
 $L{=}16$ and nothing beyond $L{=}32$. Appendix~\ref{sec:memory-chain-grids} gives the full
-grids, the per-cell gains and the frozen control.
+grids and the per-cell gains, and Appendix~\ref{sec:frozen-control} the frozen control.
 
 \subsection{POPGym}
 
@@ -516,11 +516,25 @@ bellec2020solution} or by restricting the recurrence so the exact influence is c
 diagonal complex cells \citep{orvieto2023resurrecting, zucchet2023online, elelimy2024real} or
 element-wise gates \citep{irie2024exploring}. We take the second route and analyse what the
 resulting trace does inside a TD($\lambda$) update, which \citet{lemmel2025rtrrl} do not.
+
+Partial observability couples two requirements that are easily conflated, since an agent must
+both retain the cue in its state and propagate credit back to the parameters that stored it.
+\citet{ni2023transformers} separate the two and find that sequence models can supply memory while
+leaving credit assignment largely untouched, and \citet{lafuente2025temporal} quantify how far
+back an agent's memory is actually used. Proposition~\ref{prop:composition} speaks to the second
+requirement, since retention enters it only through $\rho$, and
+Section~\ref{sec:memory_chain} finds the two coming apart in the same direction, with a credit
+horizon that exceeds the solvable chain in every cell we test.
+
 Recurrence is the standard remedy for partial observability, and \citet{ni2022recurrent} give
-the baseline comparison our masked-MuJoCo protocol follows. Our continual-foraging evaluation
-sits in the tradition of tracking rather than converging \citep{sutton2007tracking}, where the
-failure mode is loss of plasticity \citep{dohare2024loss}, which Foragax
-\citep{tang2026forager} induces with a periodically flipping reward.
+the baseline comparison our masked-MuJoCo protocol follows. The memoryless control we report on
+every benchmark follows the logic of memory-improvable domains \citep{tao2025pobax}, where a task
+earns its place only if memory demonstrably helps, and POPGym \citep{morad2023popgym} with its
+successors \citep{wang2026popgymarcade} supplies the discrete long-memory tasks. Our
+continual-foraging evaluation sits in the tradition of tracking rather than converging
+\citep{sutton2007tracking, khetarpal2022towards}, where the failure mode is loss of plasticity
+\citep{dohare2024loss, abbas2023loss}, which Foragax \citep{tang2026forager} induces with a
+periodically flipping reward.
 
 \section{Discussion and Conclusion}
 \label{sec:discussion}
@@ -531,12 +545,29 @@ compose into a credit horizon we predict, measure and follow from prediction thr
 Acting on the part of that horizon the composition leaves short moves masked
 continuous control from a clear loss to parity.
 
-The streaming agents trail recurrent
+The practical consequence is that the constants do not transfer. A streaming algorithm reaching
+for a recurrence inherits a trace decay and a step-size rule chosen on fully observed control,
+where no part of the network integrates an observation stream, and both assumptions fail once
+\gls{rtrl} supplies the gradient. The trace decay has to be set against the credit horizon rather
+than copied, which is worth a factor of $5.9$ on masked Hopper, and the step-size rules rest on
+the trace being a decayed sum of recent gradients, which the sensitivity violates in three
+separate ways. Neither correction is specific to the algorithms we test, so both should apply to
+any streaming update built on the same two ingredients.
+
+What the evidence does not support is a claim that recurrence alone is enough. Retention is
+necessary but not sufficient, since the credit horizon exceeds the solvable chain in every
+MemoryChain cell, by factors from $1.5$ to nearly $400$, so what limits these agents at long
+horizons is something the bound does not capture. The streaming agents also trail recurrent
 \gls{ppo} on eight of eleven POPGym tasks, three of which no method beats its memoryless
-counterpart. Both intentional variants diverge until their preconditioner is
-corrected, and on Foragax the best agent under that update is memoryless. Retention is necessary but not sufficient, since the credit
-horizon exceeds the solvable chain in every MemoryChain cell. Two limitations are structural, a
-single recurrent layer and ten seeds.
+counterpart, which is the cost of one pass over each transition rather than many. Both
+intentional variants diverge until their preconditioner is corrected, and on continual foraging
+the best agent under that update is memoryless.
+
+Three limitations are structural. Every agent here carries a single recurrent layer, so we cannot
+say how the horizon composes through depth. Masked MuJoCo is the one benchmark we did not run
+with a second recurrence, leaving the cell and the task confounded there. And ten seeds resolve
+the differences we report but not the narrow ones, which we mark as unresolved rather than
+settle.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Appendices
@@ -588,7 +619,7 @@ streaming algorithms, together with the difference. A run counts as successful w
 return exceeds $0.5$; outlined cells mark, in each column, the longest chain at which the
 method still succeeds on a majority of seeds.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/memory_chain/horizon_grid.pdf}
     \caption{Solve rates for RQRC($\lambda$) with a minGRU recurrence ($\gamma{=}0.999$,
@@ -598,7 +629,7 @@ method still succeeds on a majority of seeds.
     \label{fig:grid-qrc}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/memory_chain/horizon_grid_stream_q.pdf}
     \caption{Solve rates for stream RQ($\lambda$), which replaces RQRC($\lambda$)'s corrected
@@ -609,7 +640,7 @@ method still succeeds on a majority of seeds.
     \label{fig:grid-stream-q}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/memory_chain/horizon_grid_intentional_q.pdf}
     \caption{Solve rates for intentional RQ($\lambda$) ($16$ seeds per cell). Exact \gls{rtrl}
@@ -702,7 +733,7 @@ fraction of rollouts in which the TBPTT(1) weight at lag $n$ is exactly zero whi
 \gls{rtrl} weight is not, on trained minGRU agents at $L{=}64$, ten seeds and three rollouts
 per seed per $\epsilon$.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \begin{tabular}{llcccccc}
 \toprule
@@ -724,7 +755,7 @@ $n$ while exact \gls{rtrl} retains some, on minGRU at $L{=}64$.}
 \section{Additional MemoryChain results}
 \label{sec:memory-chain-extra}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.52\linewidth]{plots/rtrl.pdf}
     \caption{Per-step wall-clock time (ms) of a single gradient update as a function of hidden
@@ -761,7 +792,7 @@ $+0.05$ $[-0.42, 0.40]$, and intentional RQ($\lambda$) $-0.81$ $[-1.22, -0.40]$,
 of $0.85$ $[0.25, 1.41]$. Under intentional RQ($\lambda$) the memoryless
 agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/foragax/foragax_body.pdf}
     \caption{Continual foraging, 10 seeds. Left and centre compare the algorithms under
@@ -773,7 +804,7 @@ agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
 \end{figure}
 
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/foragax/reward_rate.pdf}
     \caption{IQM reward rate, 10 seeds, on Foragax NeverEndingRelearning for stream RQ($\lambda$), intentional RQ($\lambda$) and batched \gls{ppo} (entropy coefficient $0.1$), with the minimum after each flip in the last panel (solid stream RQ($\lambda$), dashed \gls{ppo}). Dotted lines mark the reward flips every 500k frames.}
@@ -839,7 +870,7 @@ the \gls{rtu} run still becomes non-finite late in training and minGRU recovers 
 $0.3$. The pattern across the three benchmarks is that estimating the preconditioner from the
 trace helps exactly where the gradient-estimated one diverges and hurts where it does not.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.62\linewidth]{plots/foragax/trace_preconditioning.pdf}
     \caption{Intentional RQ($\lambda$) on Foragax with the preconditioner estimated from the
@@ -894,7 +925,7 @@ the same task from $0.83$ to $-0.12$ and leaves RQRC($\lambda$) near its $0.95$ 
 far below the retention horizon. Where it sits does not, and we report $\lambda$ as a
 benchmark-level choice rather than a quantity the composition determines.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Episode return at 2M frames on masked Hopper against the trace decay, mean over 5
 seeds with standard error, stream RAC($\lambda$) with \gls{rtu} under exact \gls{rtrl}.}
@@ -924,7 +955,7 @@ default.
 \section{Actor step-size sweep on masked MuJoCo}
 \label{sec:stepsize}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Masked MuJoCo at 5M frames, 10 seeds. Bootstrap $95\%$ percentile interval on the
 difference of means, stream RAC($\lambda$) minus recurrent \gls{ppo}, from $20{,}000$ resamples.
@@ -960,7 +991,7 @@ increase above the default is worse. Section~\ref{sec:mujoco} reports it at the 
 The same argument that sets $\lambda$ for the recurrence rather than inheriting it applies to the
 step size, and only one of the two published constants survives it.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Final episode return at 2M frames on masked MuJoCo under actor step-size sweeps at
 $\lambda = 0.99$, mean over 10 seeds with standard error. Each method is bracketed on both sides
@@ -1007,7 +1038,7 @@ what the per-task ceilings in Section~\ref{sec:popgym} are computed from. Contin
 three recurrences in Appendix~\ref{sec:foragax}. We did not run masked MuJoCo with a second
 recurrence, so the cell and the benchmark remain confounded there alone.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/popgym/learning_curves_mingru.pdf}
     \caption{POPGym with a minGRU recurrence, otherwise identical to
@@ -1016,7 +1047,7 @@ recurrence, so the cell and the benchmark remain confounded there alone.
     \label{fig:popgym-mingru}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=\linewidth]{plots/popgym/learning_curves_ffn.pdf}
     \caption{POPGym with a memoryless network, otherwise identical to
@@ -1035,7 +1066,7 @@ eligibility trace solve $L{=}16$ in about half the seeds and nothing beyond $L{=
 frozen minGRU solves nothing, so the trained recurrence is required and a long-retention
 reservoir does not substitute for it.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Mean MemoryChain score with the recurrent parameters frozen at initialisation, RQRC($\lambda$) with TBPTT(1), 16 seeds.}
 \label{tab:frozen}
@@ -1072,30 +1103,34 @@ hyperparameters reported by \citet{elelimy2024real}, including their real-time u
 a rollout of $2048$ steps, each stored with its own \gls{rtrl} sensitivity, split into
 $32$ minibatches of single steps.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Hyperparameters for RQRC($\lambda$) on the MemoryChain experiment
-(Section~\ref{sec:memory_chain}).}
+(Section~\ref{sec:memory_chain}). Stream RQ($\lambda$) and intentional RQ($\lambda$) use the same
+values apart from the step-size rule each brings from its own work, and the last three rows are
+swept rather than fixed.}
 \label{tab:hparams-MemoryChain}
 \begin{tabular}{ll}
 \toprule
 Name & Value \\
 \midrule
-Chain length, $L$                      & $\{2, 4, 8, 16, 32, 48, 64, 128\}$ \\
 Frames per run                         & $500{,}000$ \\
 Number of seeds                        & $16$--$32$ per cell \\
 Discount factor, $\gamma$              & $0.999$ \\
-Trace decay, $\lambda$                 & $0.95$ \\
 $Q$-network step size, $\alpha_Q$      & $10^{-4}$ \\
 $h$-network step size, $\alpha_h$      & $10^{-5}$ \\
 Regularization coefficient, $\beta$ & $1.0$ \\
 MLP width                              & $64$ \\
-\gls{rtu} hidden dimension             & $192$ \\
+minGRU hidden dimension                & $192$ \\
+\midrule
+Chain length, $L$                      & $\{16, 32, 64, 96, 128, 192, 256\}$ \\
+Trace decay, $\lambda$                 & $\{0.8, 0.9, 0.98, 0.995, 1\}$ \\
+Gradient computation                   & TBPTT(1), exact \gls{rtrl} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Hyperparameters for RQRC($\lambda$) on POPGym (Section~\ref{sec:popgym}).}
 \label{tab:hparams-popgym-streaming}
@@ -1119,7 +1154,7 @@ MLP width                              & $64$ \\
 
 
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Hyperparameters for the Masked MuJoCo experiment
 (Section~\ref{sec:mujoco}). Stream RAC($\lambda$) and intentional RAC($\lambda$)
@@ -1159,7 +1194,7 @@ Critic $\eta_V$                        & $0.5$ \\
 \end{tabular}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Hyperparameters for the trace-conditioning experiment (Section~\ref{sec:trace}), following \citet{rafiee2022eye}.}
 \label{tab:hparams-trace}
@@ -1182,7 +1217,7 @@ Recurrent hidden dimension             & $192$ \\
 \end{tabular}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Hyperparameters for the Foragax NeverEndingRelearning experiment
 (Appendix~\ref{sec:foragax}). Stream RQ($\lambda$) and intentional RQ($\lambda$)
@@ -1222,7 +1257,7 @@ $\eta$                                 & $0.1$ \\
 \end{tabular}
 \end{table}
 
-  \begin{table}[H]
+  \begin{table}[htbp]
   \centering
   \caption{Hyperparameters for stream RAC($\lambda$) on the KMemoryChain experiment
   (Appendix~\ref{sec:staleness}).}
@@ -1247,7 +1282,7 @@ $\eta$                                 & $0.1$ \\
   \end{tabular}
   \end{table}
 
-  \begin{table}[H]
+  \begin{table}[htbp]
   \centering
   \caption{Hyperparameters for RQRC($\lambda$) on the KMemoryChain experiment
   (Appendix~\ref{sec:staleness}).}
@@ -1278,7 +1313,7 @@ $\eta$                                 & $0.1$ \\
 \section{Pseudocode}
 \label{sec:pseudocode}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.62\linewidth]{figures/architecture.pdf}
     \caption{Data flow for one network with a value head. The recurrent layer's \gls{rtrl} trace and the head's gradient form $\boldsymbol{g}_t$, which the eligibility trace accumulates.}
