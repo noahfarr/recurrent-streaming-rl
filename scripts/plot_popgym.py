@@ -179,8 +179,10 @@ def main():
     figure, axes = plt.subplots(
         rows, columns,
         figsize=(FIG_WIDTH, SUBPLOT_HEIGHT * 1.15 * rows),
+        sharex=True, sharey=True,
         constrained_layout=True,
     )
+    figure.get_layout_engine().set(w_pad=0.01, h_pad=0.01, wspace=0.02, hspace=0.04)
     flat = axes.ravel()
     for index, task in enumerate(TASKS):
         axis = flat[index]
@@ -204,7 +206,9 @@ def main():
         axis.set_title(task, fontsize=label_size)
         axis.grid(True, alpha=0.2)
         axis.set_axisbelow(True)
-        axis.tick_params(labelsize=tick_size)
+        axis.tick_params(labelsize=tick_size,
+                         labelbottom=index + columns >= len(TASKS),
+                         labelleft=index % columns == 0)
         axis.set_xticks([0, 5, 10])
         axis.set_yticks([0.0, 0.5, 1.0])
         for spine in axis.spines.values():
