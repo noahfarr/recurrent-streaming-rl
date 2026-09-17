@@ -62,7 +62,7 @@ Technical University of Darmstadt, Hessian.AI, DFKI
 \maketitle
 
 \begin{abstract}
-We show that exact real-time recurrent learning (RTRL) over a diagonal recurrence composes with the eligibility trace of a streaming reinforcement learning update, giving streaming agents a credit horizon bounded by the slower of the trace decay and the retention of the recurrence. Streaming methods learn from one transition at a time with no replay buffer, which has kept partially observable tasks out of reach, since truncated backpropagation collapses to a one-step horizon in that setting and RTRL for general recurrent networks is quartic in the hidden size. Restricting to recurrences with a diagonal state-to-state Jacobian, satisfied by RTUs, minGRUs or any other diagonal state-space model, makes exact RTRL linear in the parameter count and lets it slot into any streaming algorithm built on a per-step gradient and an eligibility trace. The composition predicts which quantity sets the decay of credit under each gradient computation, and measurements on trained agents separate them: lowering the trace decay moves the truncated weight and leaves the exact one where the retention puts it. On trace conditioning and MemoryChain exact RTRL tracks horizons up to four times longer than one-step truncation, and under the intentional update it solves chain length 256 at every trace decay we test, including the standard $0.8$ where the eligibility trace spans five steps, which one-step truncation reaches only as $\lambda$ approaches one. On eleven POPGym tasks the same agents beat their own memoryless counterparts on six to nine depending on the algorithm, and on masked MuJoCo they reach parity with recurrent PPO at matched capacity, indistinguishable on five of eight task-regime cells, once the trace decay is set for the recurrence rather than inherited from feedforward work.
+We show that exact real-time recurrent learning (RTRL) over a diagonal recurrence composes with the eligibility trace of a streaming reinforcement learning update, giving streaming agents a credit horizon bounded by the slower of the trace decay and the retention of the recurrence. Streaming methods learn from one transition at a time with no replay buffer, which has kept partially observable tasks out of reach, since truncated backpropagation collapses to a one-step horizon in that setting and RTRL for general recurrent networks is quartic in the hidden size. Restricting to recurrences with a diagonal state-to-state Jacobian, satisfied by RTUs, minGRUs or any other diagonal state-space model, makes exact RTRL linear in the parameter count and lets it slot into any streaming algorithm built on a per-step gradient and an eligibility trace. The composition predicts which quantity sets the decay of credit under each gradient computation, and measurements on trained agents separate them, since lowering the trace decay moves the truncated weight and leaves the exact one where the retention puts it. On trace conditioning and MemoryChain exact RTRL tracks horizons up to four times longer than one-step truncation, and under the intentional update it solves chain length 256 at every trace decay we test, including the standard $0.8$ where the eligibility trace spans five steps, which one-step truncation reaches only as $\lambda$ approaches one. On eleven POPGym tasks the same agents beat their own memoryless counterparts on six to nine depending on the algorithm, and on masked MuJoCo they reach parity with recurrent PPO at matched capacity, indistinguishable on five of eight task-regime cells, once the trace decay is set for the recurrence rather than inherited from feedforward work.
 \end{abstract}
 
 \section{Introduction}
@@ -72,21 +72,19 @@ We show that exact real-time recurrent learning (\gls{rtrl}) over a diagonal rec
 
 \gls{rtrl} \citep{williams1989learning} maintains the recurrent gradient forward in time and is the natural fit for streaming, but its cost is quartic in the hidden size for general recurrences. It becomes linear in the parameter count when the state-to-state Jacobian is diagonal, since each parameter then influences only its own unit. \gls{rtu}s \citep{elelimy2024real}, minGRUs \citep{feng2024were} and diagonal state-space models \citep{orvieto2023resurrecting} all satisfy this, where a \gls{gru} \citep{cho2014properties} or \gls{lstm} \citep{hochreiter1997long} does not. Prior work has trained such cells with \gls{ppo} \citep{schulman2017proximal, elelimy2024real} or with approximate forward-mode gradients inside a TD($\lambda$) actor-critic \citep{lemmel2025rtrrl}. We insert exact \gls{rtrl} into existing streaming algorithms unchanged and analyse the resulting update. The \gls{rtrl} sensitivity trace and the eligibility trace form one triangular linear system whose slower mode, the larger of the trace decay $\gamma\lambda$ and the retention $\rho$ of the recurrence, sets the rate at which credit on past steps decays, while TBPTT(1) decays at $\gamma\lambda$ alone.
 
-The evidence is of three kinds. Measurements on trained agents show the truncated weight tracking $\gamma\lambda$ while the exact weight does not, and that retention is learned by minGRU but supplied by \gls{rtu}'s initialisation. On trace conditioning (Figure~\ref{fig:trace}) and MemoryChain, exact \gls{rtrl} tracks horizons up to four times longer than TBPTT(1), and on MemoryChain the reachable chain length grows with $\lambda$ under one-step truncation while exact \gls{rtrl} extends it further at every $\lambda$, by one grid step under RQRC($\lambda$) and to $L{=}256$ independently of $\lambda$ under the intentional update. On eleven POPGym tasks the recurrent agents beat the identical updates without a recurrence on six to nine depending on the algorithm, on masked MuJoCo they learn continuous control from single transitions and reach parity with recurrent \gls{ppo}, and on Foragax they keep relearning under a flipping reward. We do not claim state-of-the-art performance on any single benchmark.
+The evidence is of three kinds. Measurements on trained agents show the truncated weight tracking $\gamma\lambda$ while the exact weight does not, and that retention is learned by minGRU but supplied by \gls{rtu}'s initialisation. On trace conditioning (Figure~\ref{fig:trace}) and MemoryChain, exact \gls{rtrl} tracks horizons up to four times longer than TBPTT(1), and on MemoryChain the reachable chain length grows with $\lambda$ under one-step truncation while exact \gls{rtrl} extends it further at every $\lambda$, by one grid step under RQRC($\lambda$) and to $L{=}256$ independently of $\lambda$ under the intentional update. On eleven POPGym tasks the recurrent agents beat the identical updates without a recurrence on six to nine depending on the algorithm, on masked MuJoCo they reach parity with recurrent \gls{ppo}, and on Foragax they keep relearning under a flipping reward. We do not claim state-of-the-art performance on any single benchmark.
 
 
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.84\linewidth]{plots/memory_chain/horizon_difference.pdf}
-    \caption{Where the composition predicts exact \gls{rtrl} helps, and where it does not. Gain in
-    solve rate from exact \gls{rtrl} over TBPTT(1) on MemoryChain, as a
-    function of chain length $L$ and trace decay $\lambda$, for three streaming algorithms
-    with a minGRU recurrence ($\gamma{=}0.999$, $16$--$32$ seeds per cell). A run counts as
-    successful when its final return exceeds $0.5$. White cells mark combinations where
-    neither method solves the task, distinguishing them from cells where both already succeed
-    and the difference is likewise zero. Per-method solve rates for all three sweeps are given
-    in Appendix~\ref{sec:memory-chain-grids}.}
+    \caption{Exact \gls{rtrl} helps most where the eligibility trace is short. Gain in solve rate
+    over TBPTT(1) on MemoryChain against chain length $L$ and trace decay $\lambda$, for three
+    streaming algorithms with a minGRU recurrence ($\gamma{=}0.999$, $16$--$32$ seeds per cell).
+    A run is successful when its final return exceeds $0.5$. White cells are combinations
+    neither method solves, as distinct from cells where both succeed and the gain is also zero.
+    Appendix~\ref{sec:memory-chain-grids} gives the per-method rates.}
     \label{fig:memory_chain_lambda}
 \end{figure}
 
@@ -95,11 +93,11 @@ The evidence is of three kinds. Measurements on trained agents show the truncate
     \item A proof that the \gls{rtrl} sensitivity trace and the eligibility trace form one
     triangular system whose slower mode bounds the credit horizon, with measured credit weights
     separating the two channels on trained agents.
-    \item The consequence that horizon is not shared: parameters reached by the sensitivity
+    \item The consequence that horizon is not shared, since parameters reached by the sensitivity
     inherit the recurrence's retention, while the rest of the network decays at
     $\gamma\lambda$, so $\lambda$ remains consequential even when the recurrence retains for
     hundreds of steps. Neither $\lambda$ nor the streaming step-size rules transfer from
-    feedforward work, and we show why: the rules assume the trace is a decayed sum of recent
+    feedforward work, and we show why, because the rules assume the trace is a decayed sum of recent
     gradients, which \gls{rtrl} violates in three distinct ways
     (Appendices~\ref{sec:lambda} and~\ref{sec:stepsize-analysis}).
     \item Streaming deep RL for partial observability with exact \gls{rtrl} over any
@@ -113,7 +111,7 @@ The evidence is of three kinds. Measurements on trained agents show the truncate
 \label{sec:background}
 
 \paragraph{Streaming reinforcement learning with eligibility traces.}
-A streaming agent updates from each transition and discards it, and propagates credit across time with eligibility traces \citep{sutton1998introduction}: for a per-step gradient $\boldsymbol{g}_t$ of a value function or policy with respect to parameters $\boldsymbol{w}_t$,
+A streaming agent updates from each transition and discards it, and propagates credit across time with eligibility traces \citep{sutton1998introduction}. For a per-step gradient $\boldsymbol{g}_t$ of a value function or policy with respect to parameters $\boldsymbol{w}_t$,
 \begin{equation}
     \boldsymbol{z}_t = \gamma\lambda \boldsymbol{z}_{t-1} + \boldsymbol{g}_t, \qquad \boldsymbol{w}_{t+1} = \boldsymbol{w}_t + \alpha \delta_t \boldsymbol{z}_t, \qquad \boldsymbol{z}_0 \doteq \boldsymbol{0},
 \end{equation}
@@ -139,21 +137,28 @@ and the recursion costs $O(n^4)$ per step, prohibitive even for moderate
 $n$.
 
 \paragraph{Diagonal recurrences.}
-\gls{rtu}s \citep{elelimy2024real} sidestep this barrier with a linear diagonal complex-valued recurrence (their linear variant, with a nonlinearity only on the output),
+Exact \gls{rtrl} is expensive because it carries a dense influence matrix through a dense
+state-to-state Jacobian $\boldsymbol{J}_t$. When $\boldsymbol{J}_t$ is diagonal each hidden unit
+feeds only itself, the recursion decouples, and the cost falls to
+$\mathcal{O}(|\boldsymbol{\psi}|)$ per step rather than quartic in the hidden size. This depends
+on the Jacobian alone, so it holds across the diagonal state-space family however the diagonal is
+parameterised. We take two instances that put the retention in different places.
+
+\gls{rtu}s \citep{elelimy2024real} use a linear diagonal complex-valued recurrence,
 \begin{equation}
     \boldsymbol{h}_t = \boldsymbol{\Lambda} \boldsymbol{h}_{t-1} + \boldsymbol{W} \boldsymbol{x}_t,
 \end{equation}
 where $\boldsymbol{\Lambda} \in \mathbb{C}^{n\times n}$ is diagonal with entries
-$\lambda_k = r_k(\cos\Omega_k + i\sin\Omega_k)$, where $r_k$ and $\Omega_k$ define the polar complex representation of the $k$'th parameter. Because each hidden unit
-has only one recurrent connection to itself, exact \gls{rtrl} has linear time and memory complexity in the number of
-parameters, which Figure~\ref{fig:rtrl} in Appendix~\ref{sec:memory-chain-extra} confirms empirically.
+$\lambda_k = r_k(\cos\Omega_k + i\sin\Omega_k)$, where $r_k$ and $\Omega_k$ define the polar
+complex representation of the $k$'th parameter, so $\boldsymbol{J}_t$ is constant in the input.
+Figure~\ref{fig:rtrl} in Appendix~\ref{sec:memory-chain-extra} confirms the linear cost.
 
-The minGRU \citep{feng2024were} satisfies the same condition through a real gate rather than a
-complex rotation: $\boldsymbol{h}_t = (\boldsymbol{1}-\boldsymbol{u}_t) \odot \boldsymbol{h}_{t-1}
+The minGRU \citep{feng2024were} meets the same condition with a real gate rather than a
+complex rotation, $\boldsymbol{h}_t = (\boldsymbol{1}-\boldsymbol{u}_t) \odot \boldsymbol{h}_{t-1}
 + \boldsymbol{u}_t \odot \boldsymbol{W}_h \boldsymbol{x}_t$ with
 $\boldsymbol{u}_t = \sigma(\boldsymbol{W}_u \boldsymbol{x}_t)$ depending on the input alone, so
-$\boldsymbol{J}_t = \mathrm{diag}(\boldsymbol{1}-\boldsymbol{u}_t)$ and exact \gls{rtrl} is again
-linear in the parameter count. The two differ in where retention comes from, \gls{rtu}'s $r_k$
+$\boldsymbol{J}_t = \mathrm{diag}(\boldsymbol{1}-\boldsymbol{u}_t)$ varies with the input while
+staying diagonal. The two differ in where retention comes from, \gls{rtu}'s $r_k$
 being set near one at initialisation while the minGRU gate starts at $0.5$ and must raise it,
 and in how credit accumulates, since a real positive retention adds terms that cannot cancel
 while \gls{rtu}'s complex rotation can interfere destructively across lags
@@ -167,20 +172,20 @@ while \gls{rtu}'s complex rotation can interfere destructively across lags
 
 Our method makes a single change to existing streaming algorithms.
 Where an algorithm typically uses a feedforward function approximator
-mapping observations to values or actions, we insert an \gls{rtu} layer between the observation and the feedforward head. The streaming update machinery, including eligibility traces and step-size adaptation, is unchanged. The only modification is how the per-step gradient that feeds into the eligibility
-trace is computed. Figure~\ref{fig:architecture} shows the data flow, and we describe the gradient computation for a single
-network below.
+mapping observations to values or actions, we insert a diagonal recurrent layer between the observation and the feedforward head. The streaming machinery, including eligibility traces and step-size
+adaptation, is unchanged, and the only modification is how the per-step gradient feeding the
+trace is computed. Figure~\ref{fig:architecture} shows the data flow.
 
 
 
 \paragraph{Per-step gradient.}
-The function approximator has three parameter groups: an encoder
-$\phi(\,\cdot\,;\boldsymbol{\theta})$ producing features $\boldsymbol{x}_t$, a recurrent \gls{rtu}
+The function approximator has three parameter groups, an encoder
+$\phi(\,\cdot\,;\boldsymbol{\theta})$ producing features $\boldsymbol{x}_t$, a diagonal recurrent
 layer with parameters $\boldsymbol{\psi}$ producing the state
-$\boldsymbol{h}_t$, and a feedforward head with parameters $\boldsymbol{w}$
-(a value head $v(\boldsymbol{h}_t; \boldsymbol{w}_v)$, say). We compute the gradient
+$\boldsymbol{h}_t$, and a feedforward head with parameters $\boldsymbol{w}$, for instance a
+value head $v(\boldsymbol{h}_t; \boldsymbol{w}_v)$. We compute the gradient
 of the head output with respect to each group in a single backward pass,
-combined with the \gls{rtu}'s forward-mode \gls{rtrl} trace
+combined with the layer's forward-mode \gls{rtrl} trace
 $\boldsymbol{S}_t = \partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$.
 
 The head parameters have no temporal dependency and receive an ordinary
@@ -202,40 +207,49 @@ Operationally the two traces compose without modification. The \gls{rtrl}
 trace is a forward-mode object that maintains
 $\partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$ at each step; the eligibility
 trace is a temporal accumulator of whatever per-step gradient the streaming
-algorithm supplies. Each \gls{rtu} layer supplies its
+algorithm supplies. Each recurrent layer supplies its
 $\partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$ on demand whenever the streaming
 update needs the gradient with respect to its recurrent parameters, and the
 eligibility trace folds this into its usual recursion.
 
-Their effects on credit assignment, however, are not independent. Both carry credit backward in
-time, and the reach of the update is bounded by whichever decays more slowly. The bound governs how
+Their effects on credit assignment, however, are not independent. The bound below governs how
 credit is weighted, not whether any is available to assign.
 Appendix~\ref{sec:composition-caveats} gives three qualifications, including why $\lambda$ is not
 free and why $\rho > \gamma\lambda$ is the typical case.
 
 \begin{proposition}
 \label{prop:composition}
-Let $\boldsymbol{\Phi}_{i,k} \doteq \boldsymbol{J}_i \boldsymbol{J}_{i-1}\cdots\boldsymbol{J}_{k+1}$
-for $i > k$, with $\boldsymbol{\Phi}_{k,k}$ the identity matrix. At the end of an episode of
-length $T$, both updates are weighted sums over the same immediate Jacobians,
-$\boldsymbol{z}_T = \sum_{k=0}^{T} \boldsymbol{\omega}_k \boldsymbol{I}_k$, with
+Write $\boldsymbol{J}_t = \partial \boldsymbol{h}_t / \partial \boldsymbol{h}_{t-1}$ for the
+state-to-state Jacobian and
+$\boldsymbol{I}_t = \partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$ for the immediate
+Jacobian, the one-step part of the full sensitivity $\boldsymbol{S}_t$. Let
+$\boldsymbol{c}_t^\top = \partial v(\boldsymbol{h}_t;\boldsymbol{w}_v) / \partial \boldsymbol{h}_t$
+be the head's sensitivity to the state. Let
+$\boldsymbol{\Phi}_{i,k} \doteq \boldsymbol{J}_i \boldsymbol{J}_{i-1}\cdots\boldsymbol{J}_{k+1}$
+for $i > k$, with $\boldsymbol{\Phi}_{k,k}$ the identity.
+At the end of an episode of length $T$ the eligibility trace is a weighted sum over the same
+immediate Jacobians under either gradient computation,
+$\boldsymbol{z}_T = \sum_{k=0}^{T} \boldsymbol{\omega}_k \boldsymbol{I}_k$, so the two differ only
+in their weights,
 \begin{equation}
     \boldsymbol{\omega}_k^{\mathrm{TBPTT(1)}} = (\gamma\lambda)^{T-k}\, \boldsymbol{c}_k^\top,
     \qquad
     \boldsymbol{\omega}_k^{\mathrm{\gls{rtrl}}}
     = \sum_{i=k}^{T} (\gamma\lambda)^{T-i}\, \boldsymbol{c}_i^\top \boldsymbol{\Phi}_{i,k}.
 \end{equation}
-Writing $\rho \doteq \max_t \|\boldsymbol{J}_t\|$ and $C \doteq \max_t \|\boldsymbol{c}_t\|$,
+Exact \gls{rtrl} keeps the terms with $i > k$, which carry the dependence of later states on
+$\boldsymbol{h}_k$. Writing $\rho \doteq \max_t \|\boldsymbol{J}_t\|$ and
+$C \doteq \max_t \|\boldsymbol{c}_t\|$,
 \begin{equation}
     \|\boldsymbol{\omega}_k^{\mathrm{\gls{rtrl}}}\|
     \;\le\; C \sum_{i=k}^{T} (\gamma\lambda)^{T-i} \rho^{\,i-k}
     \;=\; \mathcal{O}\!\left(\max(\gamma\lambda,\rho)^{\,T-k}\right)
 \end{equation}
-for $\rho \neq \gamma\lambda$; at equality the sum has $T-k+1$ terms of equal size and the
-bound carries an additional factor $T-k+1$.
+for $\rho \neq \gamma\lambda$. At equality all $T-k+1$ terms have the same size and the bound
+gains a factor $T-k+1$.
 \end{proposition}
 
-Substituting the \gls{rtrl} recursion into the eligibility trace shows why:
+Substituting the \gls{rtrl} recursion into the eligibility trace shows why. The pair
 $(\boldsymbol{S}_t, \boldsymbol{z}_t)$ evolves as one block-triangular linear system whose modes
 are those of the recurrence together with $\gamma\lambda$, and TBPTT(1) severs the coupling
 between them, so the decay is bounded by whichever mode is slower. Writing $n = T-k$ for the lag,
@@ -266,7 +280,7 @@ leaves the \gls{rtrl} rate at $0.994$ or above. Over $32$ lags that rate sits at
 one, the $n+1$ prefactor of the near-degenerate regime $\rho \approx \gamma\lambda$ rather than
 a decay, so the bound orders the two channels without being tight on either. The amplification
 at lag $32$ is cell-dependent, $20$ to $33$ for minGRU against $6$ to $9$ for \gls{rtu}, which
-the same measurements attribute to phase cancellation: minGRU's coherence is exactly $1$ at
+the same measurements attribute to phase cancellation, since minGRU's coherence is exactly $1$ at
 every lag because its retentions are real and positive, while \gls{rtu}'s complex rotation
 drives it to $0.23$--$0.46$ by lag $32$. What the measurements do not establish is sufficiency,
 since the credit horizon exceeds the observed solvable chain in every cell of every grid.
@@ -275,7 +289,7 @@ exploration cuts, which favour \gls{rtrl} because zeroing the eligibility trace 
 action leaves the influence matrix intact.
 
 \paragraph{Instantiations.} We evaluate on five streaming algorithms covering prediction,
-value-based control and policy-based control: stream TD($\lambda$), stream Q($\lambda$) and
+value-based control and policy-based control, namely stream TD($\lambda$), stream Q($\lambda$) and
 stream AC($\lambda$) \citep{elsayed2024streaming}, QRC($\lambda$) \citep{elelimy2025deep} and
 intentional Q($\lambda$) \citep{sharifnassab2026intentional}. We call their recurrent instances
 stream RTD($\lambda$), stream RQ($\lambda$), stream RAC($\lambda$), RQRC($\lambda$) and
@@ -294,7 +308,7 @@ Trace conditioning (Section~\ref{sec:trace}) tests the credit horizon on pure pr
 POPGym (Section~\ref{sec:popgym}) tests whether the streaming method is competitive with a recurrent baseline that reuses each transition, on long-memory discrete control.
 Masked MuJoCo (Section~\ref{sec:mujoco}) extends the evaluation to continuous control.
 Foragax (Section~\ref{sec:foragax}) tests continual relearning under a periodically inverted reward.
-All curves report the interquartile mean (IQM) with shaded standard error, and seed counts vary by experiment and are stated in each caption. The recurrence is not held constant: each benchmark uses the cell from the work it comes from, minGRU for MemoryChain and \gls{rtu} elsewhere, and Appendix~\ref{sec:popgym-cells} repeats POPGym with the other two.
+All curves report the interquartile mean (IQM) with shaded standard error, and seed counts vary by experiment and are stated in each caption. The recurrence is not held constant, and each benchmark uses the cell from the work it comes from, minGRU for MemoryChain and \gls{rtu} elsewhere, and Appendix~\ref{sec:popgym-cells} repeats POPGym with the other two.
 Hyperparameters, network architectures, and per-task details are listed in Appendix \ref{sec:hyperparameters}.
  
 \subsection{Trace conditioning}
@@ -310,12 +324,12 @@ Exact \gls{rtrl} tracks interstimulus intervals that one-step truncation cannot,
 \end{figure}
 
 \paragraph{Task and design.}
-Trace conditioning \citep{rafiee2022eye} is a prediction task: a conditioned stimulus precedes an unconditioned one by an interstimulus interval (ISI), and the agent observes both and predicts the discounted sum of the unconditioned stimulus, with $\gamma$ set per ISI as in the original benchmark so that $1/(1-\gamma)$ matches the ISI. This is the setting of Proposition~\ref{prop:composition}: prediction under a fixed behaviour, with the memory length set by the ISI. We run stream RTD($\lambda$) with \gls{rtu}, minGRU and a memoryless network for 2M steps and 10 seeds and report the mean squared error of the prediction against the true return.
+Trace conditioning \citep{rafiee2022eye} is a prediction task, where a conditioned stimulus precedes an unconditioned one by an interstimulus interval (ISI), and the agent observes both and predicts the discounted sum of the unconditioned stimulus, with $\gamma$ set per ISI as in the original benchmark so that $1/(1-\gamma)$ matches the ISI. This is the setting of Proposition~\ref{prop:composition}, namely prediction under a fixed behaviour, with the memory length set by the ISI. We run stream RTD($\lambda$) with \gls{rtu}, minGRU and a memoryless network for 2M steps and 10 seeds and report the mean squared error of the prediction against the true return.
 
 
 \paragraph{Result.}
 Figure~\ref{fig:trace} shows that \gls{rtu} under exact \gls{rtrl} is the only configuration that tracks the timing beyond ISI 10: at ISI 20 and 40 its error is $5.1\times$ and $3.1\times$ below TBPTT(1) at $\lambda{=}0.9$, where TBPTT(1) sits near the memoryless baseline. Raising $\lambda$ to $1$ helps TBPTT(1) substantially ($0.18$ to $0.07$ at ISI 20), which is the
-eligibility trace extending the horizon. Exact \gls{rtrl} moves less but not negligibly: at ISI
+eligibility trace extending the horizon. Exact \gls{rtrl} moves less but not negligibly, since at ISI
 40 its error falls from $0.090$ at $\lambda{=}0.9$ to $0.059$ at $0.95$, rising again to $0.064$
 at $0.99$ and $1$, so an interior optimum exists here as it does on masked MuJoCo, at a
 different $\lambda$ (Appendix~\ref{sec:lambda}). At ISI 80 the recurrent configurations are at
@@ -356,24 +370,24 @@ than any chain in the sweep, so the prediction is that the TBPTT(1) boundary mov
 $\lambda$ while the \gls{rtrl} boundary need not.
 Under RQRC($\lambda$) the longest chain TBPTT(1) solves on a majority of seeds grows with the
 trace horizon $(1-\gamma\lambda)^{-1}$, from $L{=}16$ at $\lambda{=}0.8$ to $L{=}128$ at
-$\lambda{=}0.995$, though sublinearly: the ratio $L/(1-\gamma\lambda)^{-1}$ falls from $3.2$ to
+$\lambda{=}0.995$, though sublinearly, with the ratio $L/(1-\gamma\lambda)^{-1}$ falls from $3.2$ to
 $0.77$ across the sweep. Exact \gls{rtrl} moves that boundary one grid step deeper at every
 $\lambda$ but one, and its advantage is largest along the boundary, reaching $0.69$ at
-$L{=}32,\lambda{=}0.8$. The advantage vanishes in two limits the figure keeps distinct: at high
+$L{=}32,\lambda{=}0.8$. The advantage vanishes in two limits the figure keeps distinct, since at high
 $\lambda$ the trace already spans the episode and the two channels coincide, while at long $L$
 neither method succeeds. We do not attribute the latter to the recurrence losing the cue, since
 the same minGRU solves $L{=}256$ under the intentional update at every $\lambda$.
 
 The ordering is algorithm-independent and the reachable horizon is not. Exact \gls{rtrl} is at
 least as good as TBPTT(1) in every cell of all three grids but one, with mean gains of $+0.13$,
-$+0.14$ and $+0.25$, while the absolute reach differs by an order of magnitude: stream
+$+0.14$ and $+0.25$, while the absolute reach differs by an order of magnitude, with stream
 RQ($\lambda$) never passes $L{=}64$, whereas under intentional RQ($\lambda$) exact \gls{rtrl}
 solves $L{=}256$ at every $\lambda$ including $0.8$, where the trace spans five steps. That
 $\lambda$-independence is what Proposition~\ref{prop:composition} predicts for the \gls{rtrl}
 channel once $\rho$ exceeds $\gamma\lambda$. The spread tracks the retention each algorithm
 learns, $0.981$, $0.999$ and $0.99995$ respectively, ordered exactly as their reachable horizons
 are. It is not
-sufficient, however: the credit horizon $(1-\rho)^{-1}$ exceeds the observed boundary in every
+sufficient, however, since the credit horizon $(1-\rho)^{-1}$ exceeds the observed boundary in every
 cell of every grid, by factors from $1.5$ to nearly $400$. The choice of cell matters
 independently of the gradient method, and freezing the recurrence at initialisation solves
 $L{=}16$ and nothing beyond $L{=}32$. Appendix~\ref{sec:memory-chain-grids} gives the full
@@ -420,11 +434,9 @@ The ceiling partitions the suite. On three of the eleven tasks no streaming meth
 HigherLower is reached exactly at the ceiling, and on MultiArmedBandit and Concentration the best
 streaming method reaches $0.63$ and $0.42$ against ceilings of $0.67$ and $0.66$. Recurrent
 \gls{ppo} clears all three. On these the agents fail to recover behaviour a reactive baseline
-already implements, so they say little about recurrent architectures. On the remaining eight at
-least one streaming method exceeds the ceiling, though on Autoencode every method stays within
-$0.03$ of initialisation.
+already implements, so they say little about recurrent architectures. On the remaining eight at least one streaming method exceeds it.
 
-Against recurrent \gls{ppo} the streaming methods do not reach parity. They finish ahead on three tasks, all of them recall, where a single pass over a long-horizon dependency suffices: RepeatPrevious ($0.99$ against $0.81$), RepeatFirst ($0.48$ against $0.31$) and CountRecall ($0.23$ against $0.10$). They finish behind on the other eight, narrowly on Minesweeper, Autoencode and HigherLower, where every method sits at the ceiling, and by a wide margin on Concentration ($0.42$ against $0.78$), MultiArmedBandit ($0.63$ against $0.81$) and both cartpole variants, where reusing each transition many times pays. Intentional RQ($\lambda$) is the strongest streaming method here, ahead of stream RQ($\lambda$) on seven of eleven tasks and behind on two by at most $0.08$, with its largest margins on Battleship and RepeatPrevious, where stream RQ($\lambda$) reaches $0.03$ and $0.30$ against its $0.42$ and $0.99$. RQRC($\lambda$) is the weakest.
+Against recurrent \gls{ppo} the streaming methods do not reach parity. They finish ahead on three tasks, all of them recall, where a single pass over a long-horizon dependency suffices, namely RepeatPrevious ($0.99$ against $0.81$), RepeatFirst ($0.48$ against $0.31$) and CountRecall ($0.23$ against $0.10$). They finish behind on the other eight, narrowly where every method sits at the ceiling, and by a wide margin on Concentration ($0.42$ against $0.78$) and MultiArmedBandit ($0.63$ against $0.81$), where reusing each transition many times pays. Intentional RQ($\lambda$) is the strongest streaming method here, ahead of stream RQ($\lambda$) on seven of eleven tasks and behind on two by at most $0.08$, with its largest margins on Battleship and RepeatPrevious, where stream RQ($\lambda$) reaches $0.03$ and $0.30$ against its $0.42$ and $0.99$. RQRC($\lambda$) is the weakest.
 
 \subsection{Masked MuJoCo}
 
@@ -454,17 +466,17 @@ updates, and more reliably under the one whose step size transfers.
 
 \paragraph{Result.}
 Stream RAC($\lambda$) and recurrent \gls{ppo} are statistically indistinguishable on most of the
-benchmark (Figure~\ref{fig:brax}). Bootstrapping the difference of means over the 10 seeds per cell separates only three of eight: \gls{ppo} is ahead on
+benchmark (Figure~\ref{fig:brax}). Bootstrapping the difference of means over the 10 seeds per cell separates only three of eight, with \gls{ppo} ahead on
 Ant-V and Walker2d-P, stream RAC($\lambda$) on Hopper-V, and the other five overlap. Appendix~\ref{sec:stepsize} lists the
 per-cell intervals. We therefore claim parity rather than an advantage.
 
-Most of the difference from the setting these methods ship with is the trace decay: at
+Most of the difference from the setting these methods ship with is the trace decay, since at
 $\lambda = 0.8$ stream RAC($\lambda$) reaches $262$ on Hopper-P against $1550$ at $0.99$, a
 factor of $5.9$ (Appendix~\ref{sec:lambda}). Walker2d resisted $\lambda$, a per-block step size, removing the
 entropy bonus and matching the network size, and responded only to the actor step size under the
 intentional update (Appendix~\ref{sec:stepsize}).
 
-Intentional RAC($\lambda$) does not complete the benchmark as published: on three cells its
+Intentional RAC($\lambda$) does not complete the benchmark as published, since on three cells its
 updates become non-finite partway through training.
 Appendix~\ref{sec:stepsize-analysis} attributes this to its preconditioner and shows that
 estimating it from the trace instead removes the divergence, after which all eight cells complete
@@ -479,7 +491,7 @@ and with recurrent \gls{ppo}, ahead on two, behind on two and indistinguishable 
     \caption{Continual foraging, 10 seeds. Left and centre compare the algorithms under
     \gls{rtu}: the reward rate, an exponential moving average that tracks current performance,
     and the average reward over the agent's lifetime, the statistic of \citet{tang2026forager}.
-    Right compares the recurrences within stream RQ($\lambda$): the minimum reward rate reached
+    Right compares the recurrences within stream RQ($\lambda$), showing the minimum reward rate reached
     after each of the nine reward flips. Dotted lines mark the flips.}
     \label{fig:foragax}
 \end{figure}
@@ -506,7 +518,7 @@ between $0.5$ and $0.8$, whereas the \gls{rtu} dip shrinks from $0.70$ at the
 first flip to $1.64$ at the ninth (Figure~\ref{fig:foragax}), so the recurrent state progressively
 takes over the phase the FFN must relearn. The recurrence buys a shallower recovery rather than a
 higher ceiling, \gls{rtu} and the FFN finishing at $1.73$ and $1.63$. Which update it is paired
-with matters more than the recurrence itself: \gls{rtu} costs stream RQ($\lambda$) nothing,
+with matters more than the recurrence itself, since \gls{rtu} costs stream RQ($\lambda$) nothing,
 $+0.05$ $[-0.42, 0.40]$, and intentional RQ($\lambda$) $-0.81$ $[-1.22, -0.40]$, an interaction
 of $0.85$ $[0.25, 1.41]$. Under intentional RQ($\lambda$) the memoryless
 agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
@@ -544,9 +556,9 @@ continuous control from a clear loss to parity.
 The streaming agents trail recurrent
 \gls{ppo} on eight of eleven POPGym tasks, three of which no method beats its memoryless
 counterpart. Both intentional variants diverge until their preconditioner is
-corrected, and on Foragax the best agent under that update is memoryless. Retention is necessary but not sufficient: on MemoryChain the
-credit horizon exceeds the solvable chain everywhere. Two limitations are
-structural, a single recurrent layer and ten seeds per cell.
+corrected, and on Foragax the best agent under that update is memoryless. Retention is necessary but not sufficient, since the credit
+horizon exceeds the solvable chain in every MemoryChain cell. Two limitations are structural, a
+single recurrent layer and ten seeds.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Appendices

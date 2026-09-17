@@ -23,14 +23,19 @@ OUTPUT = Path("/home/farr/recurrent-streaming-rl/paper/plots/popgym/learning_cur
 CACHE = Path("/home/farr/recurrent-streaming-rl/paper/plots/popgym/.curves.pkl")
 INITIAL = Path("/home/farr/recurrent-streaming-rl/paper/plots/popgym/initial_returns.json")
 SINCE = "2026-09-03T18:00:00"
-ALGORITHMS = ["stream_q", "qrc", "intentional_q", "real_time_ppo"]
-CEILING_ALGORITHMS = ["stream_q", "qrc", "intentional_q", "ppo"]
+# stream RAC's POPGym sweep predates the cutoff that keeps stale value-based runs out.
+EARLIEST = "2026-08-28T00:00:00"
+ALGORITHM_SINCE = {"stream_ac": EARLIEST}
+ALGORITHMS = ["stream_q", "qrc", "intentional_q", "stream_ac", "real_time_ppo"]
+CEILING_ALGORITHMS = ["stream_q", "qrc", "intentional_q", "stream_ac", "ppo"]
 INITIAL_KEY = {"real_time_ppo": "ppo"}
-TRACE_LAMBDA = {"stream_q": 0.8, "qrc": 0.95, "intentional_q": 0.8}
-OPTIMIZER = {"stream_q": "ObGD", "qrc": "sgd", "intentional_q": "Intentional"}
+TRACE_LAMBDA = {"stream_q": 0.8, "qrc": 0.95, "intentional_q": 0.8, "stream_ac": 0.8}
+OPTIMIZER = {"stream_q": "ObGD", "qrc": "sgd", "intentional_q": "Intentional",
+             "stream_ac": "ObGD"}
 SEEDS_PER_ARM = 10
 LABELS = {"qrc": "RQRC($\\lambda$)", "stream_q": "stream RQ($\\lambda$)",
-          "intentional_q": "intentional RQ($\\lambda$)", "real_time_ppo": "PPO"}
+          "intentional_q": "intentional RQ($\\lambda$)",
+          "stream_ac": "stream RAC($\\lambda$)", "real_time_ppo": "PPO"}
 COLOURS = dict(zip(ALGORITHMS, sns.color_palette("Set1", len(ALGORITHMS))))
 TASKS = ["RepeatPrevious", "StatelessCartPole", "CountRecall", "Minesweeper",
          "Battleship", "NoisyStatelessCartPole", "RepeatFirst", "Autoencode",
@@ -54,9 +59,10 @@ CEILING = {}
 
 
 def algorithm_of(name):
-    for a in ("intentional_q", "stream_q", "qrc", "real_time_ppo", "ppo"):
+    for a in ("intentional_q", "intentional_ac", "stream_q", "stream_ac", "qrc",
+              "real_time_ppo", "ppo"):
         if name.startswith(a):
-            return a
+            return None if a == "intentional_ac" else a
     return None
 
 
@@ -72,7 +78,7 @@ def fetch():
             "config.num_epochs": 50,
             "config.total_timesteps": 10000000,
             "config.environment.namespace": "popgymnax",
-            "createdAt": {"$gt": SINCE},
+            "createdAt": {"$gt": EARLIEST},
         },
         order="-created_at",
     )
@@ -86,13 +92,16 @@ def fetch():
         if config.get("cell"):
             cell = str(config["cell"].get("config", {}).get("_target_", "")).split(".")[-1]
             cell = cell.replace("Config", "")
+        if run.created_at < ALGORITHM_SINCE.get(algorithm, SINCE):
+            continue
         expected = TRACE_LAMBDA.get(algorithm)
         if expected is not None:
             if (config.get("algorithm") or {}).get("trace_lambda") != expected:
                 continue
         wanted = OPTIMIZER.get(algorithm)
         if wanted is not None:
-            target = str((config.get("q_optimizer") or {}).get("_target_", ""))
+            source = "actor_optimizer" if algorithm == "stream_ac" else "q_optimizer"
+            target = str((config.get(source) or {}).get("_target_", ""))
             if target.split(".")[-1] != wanted:
                 continue
         task = (config.get("environment") or {}).get("env_id")
