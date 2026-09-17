@@ -320,11 +320,11 @@ parameters are updated independently. Appendix~\ref{sec:pseudocode} gives pseudo
 \section{Experiments}
 \label{sec:experiments}
  
-We evaluate the method on five benchmarks chosen to isolate distinct properties, and on a sixth in Appendix~\ref{sec:staleness}.
+We evaluate the method on four benchmarks chosen to isolate distinct properties, with two more in the appendices.
 Trace conditioning (Section~\ref{sec:trace}) tests the credit horizon on pure prediction, and MemoryChain (Section~\ref{sec:memory_chain}) sweeps it under control.
 POPGym (Section~\ref{sec:popgym}) tests whether the streaming method is competitive with a recurrent baseline that reuses each transition, on long-memory discrete control.
 Masked MuJoCo (Section~\ref{sec:mujoco}) extends the evaluation to continuous control.
-Foragax (Section~\ref{sec:foragax}) tests continual relearning under a periodically inverted reward.
+Continual foraging (Appendix~\ref{sec:foragax}) tests relearning under a periodically inverted reward, where the flips can be absorbed either by relearning the weights or by carrying the phase in the recurrent state. The post-flip minima separate the two, since the memoryless agent dips at every flip while the \gls{rtu} dip shrinks from $0.70$ at the first flip to $1.64$ at the ninth, so the recurrence buys a shallower recovery rather than a higher ceiling.
 All curves report the interquartile mean (IQM) with shaded standard error, and seed counts vary by experiment and are stated in each caption. The recurrence is not held constant. MemoryChain uses minGRU, which reaches longer chains there than \gls{rtu} does, because real positive retentions accumulate coherently where a complex rotation cancels, the same effect Section~\ref{sec:weights} measures. Elsewhere the body figures use \gls{rtu}, while trace conditioning, POPGym and Foragax each report minGRU and a memoryless network alongside it, the POPGym repeats in Appendix~\ref{sec:popgym-cells}. Only masked MuJoCo leaves the cell and the benchmark confounded.
 Hyperparameters, network architectures, and per-task details are listed in Appendix \ref{sec:hyperparameters}.
  
@@ -500,43 +500,6 @@ $0.05$ of \citet{sharifnassab2026intentional} it improves on seven of eight cell
 parity with stream RAC($\lambda$), ahead on one cell, behind on two and indistinguishable on five,
 and with recurrent \gls{ppo}, ahead on two, behind on two and indistinguishable on four.
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\linewidth]{plots/foragax/foragax_body.pdf}
-    \caption{Continual foraging, 10 seeds. Left and centre compare the algorithms under
-    \gls{rtu}: the reward rate, an exponential moving average that tracks current performance,
-    and the average reward over the agent's lifetime, the statistic of \citet{tang2026forager}.
-    Right compares the recurrences within stream RQ($\lambda$), showing the minimum reward rate reached
-    after each of the nine reward flips. Dotted lines mark the flips.}
-    \label{fig:foragax}
-\end{figure}
-
-\subsection{Continual Foraging}
-\label{sec:foragax}
-
-A memoryless agent relearns after every flip, and the recurrent state takes the flips over.
-
-\paragraph{Task and design.}
-Foragax NeverEndingRelearning \citep{tang2026forager} is a grid world whose two biomes swap their mushroom rewards every 500k frames, so the agent must repeatedly abandon a learned foraging pattern and rediscover the other biome. Following \citet{tang2026forager}, the agent sees a $9 \times 9$ one-hot aperture, is never reset, and explores $\varepsilon$-greedily with a floor of $0.1$. We run stream RQ($\lambda$) and intentional RQ($\lambda$) with \gls{rtu}, minGRU and a memoryless network (FFN) under \gls{rtrl}, and recurrent \gls{ppo} with \gls{rtu} at its tuned entropy coefficient, for 5M frames and 10 seeds (Figure~\ref{fig:foragax-curves}). \citet{tang2026forager} evaluate by average reward over the agent's lifetime. We report both that and the exponential moving average of reward, which they also use, because the post-flip recoveries are what this section is about and a lifetime average integrates them away.
-
-
-
-
-\paragraph{Result.}
-The flips can be absorbed by relearning the weights or by carrying the phase in the state, and
-the post-flip minima separate the two. Stream RQ($\lambda$) ends at a reward rate of $1.73$ with
-\gls{rtu}, $1.63$ with the FFN and $1.47$ with minGRU, against \gls{ppo} at $1.16$, a gap
-of $0.56$ $[0.08, 0.95]$. Under the lifetime average of \citet{tang2026forager} the ordering
-holds but the margin is unresolved, $1.42$ against $1.10$ $[-0.05, 0.45]$. The memoryless agent dips to
-between $1.2$ and $1.4$ at every flip and \gls{ppo} to
-between $0.5$ and $0.8$, whereas the \gls{rtu} dip shrinks from $0.70$ at the
-first flip to $1.64$ at the ninth (Figure~\ref{fig:foragax}), so the recurrent state progressively
-takes over the phase the FFN must relearn. The recurrence buys a shallower recovery rather than a
-higher ceiling, \gls{rtu} and the FFN finishing at $1.73$ and $1.63$. Which update it is paired
-with matters more than the recurrence itself, since \gls{rtu} costs stream RQ($\lambda$) nothing,
-$+0.05$ $[-0.42, 0.40]$, and intentional RQ($\lambda$) $-0.81$ $[-1.22, -0.40]$, an interaction
-of $0.85$ $[0.25, 1.41]$. Under intentional RQ($\lambda$) the memoryless
-agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
 
 \section{Related work}
 \label{sec:related}
@@ -770,8 +733,45 @@ $n$ while exact \gls{rtrl} retains some, on minGRU at $L{=}64$.}
     \label{fig:rtrl}
 \end{figure}
 
-\section{Additional Foragax results}
-\label{sec:foragax-extra}
+\section{Continual foraging}
+\label{sec:foragax}
+
+A memoryless agent relearns after every flip, and the recurrent state takes the flips
+over.
+
+\paragraph{Task and design.}
+Foragax NeverEndingRelearning \citep{tang2026forager} is a grid world whose two biomes swap their mushroom rewards every 500k frames, so the agent must repeatedly abandon a learned foraging pattern and rediscover the other biome. Following \citet{tang2026forager}, the agent sees a $9 \times 9$ one-hot aperture, is never reset, and explores $\varepsilon$-greedily with a floor of $0.1$. We run stream RQ($\lambda$) and intentional RQ($\lambda$) with \gls{rtu}, minGRU and a memoryless network (FFN) under \gls{rtrl}, and recurrent \gls{ppo} with \gls{rtu} at its tuned entropy coefficient, for 5M frames and 10 seeds (Figure~\ref{fig:foragax-curves}). \citet{tang2026forager} evaluate by average reward over the agent's lifetime. We report both that and the exponential moving average of reward, which they also use, because the post-flip recoveries are what this section is about and a lifetime average integrates them away.
+
+
+
+
+\paragraph{Result.}
+The flips can be absorbed by relearning the weights or by carrying the phase in the state, and
+the post-flip minima separate the two. Stream RQ($\lambda$) ends at a reward rate of $1.73$ with
+\gls{rtu}, $1.63$ with the FFN and $1.47$ with minGRU, against \gls{ppo} at $1.16$, a gap
+of $0.56$ $[0.08, 0.95]$. Under the lifetime average of \citet{tang2026forager} the ordering
+holds but the margin is unresolved, $1.42$ against $1.10$ $[-0.05, 0.45]$. The memoryless agent dips to
+between $1.2$ and $1.4$ at every flip and \gls{ppo} to
+between $0.5$ and $0.8$, whereas the \gls{rtu} dip shrinks from $0.70$ at the
+first flip to $1.64$ at the ninth (Figure~\ref{fig:foragax}), so the recurrent state progressively
+takes over the phase the FFN must relearn. The recurrence buys a shallower recovery rather than a
+higher ceiling, \gls{rtu} and the FFN finishing at $1.73$ and $1.63$. Which update it is paired
+with matters more than the recurrence itself, since \gls{rtu} costs stream RQ($\lambda$) nothing,
+$+0.05$ $[-0.42, 0.40]$, and intentional RQ($\lambda$) $-0.81$ $[-1.22, -0.40]$, an interaction
+of $0.85$ $[0.25, 1.41]$. Under intentional RQ($\lambda$) the memoryless
+agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{plots/foragax/foragax_body.pdf}
+    \caption{Continual foraging, 10 seeds. Left and centre compare the algorithms under
+    \gls{rtu}: the reward rate, an exponential moving average that tracks current performance,
+    and the average reward over the agent's lifetime, the statistic of \citet{tang2026forager}.
+    Right compares the recurrences within stream RQ($\lambda$), showing the minimum reward rate reached
+    after each of the nine reward flips. Dotted lines mark the flips.}
+    \label{fig:foragax}
+\end{figure}
+
 
 \begin{figure}[H]
     \centering
@@ -1003,8 +1003,8 @@ against $0.55$ for \gls{rtu}, a gap of $+0.21$ $[+0.20, +0.22]$, and beats its o
 control by $+0.13$ where \gls{rtu} falls $0.08$ below it. Estimating the value of an arm is a
 running average, which real positive retentions accumulate coherently and a complex rotation does
 not, the same phase cancellation Section~\ref{sec:weights} measures. The memoryless comparison is
-what the per-task ceilings in Section~\ref{sec:popgym} are computed from. Foragax reports the same
-three recurrences in Section~\ref{sec:foragax}. We did not run masked MuJoCo with a second
+what the per-task ceilings in Section~\ref{sec:popgym} are computed from. Continual foraging reports the same
+three recurrences in Appendix~\ref{sec:foragax}. We did not run masked MuJoCo with a second
 recurrence, so the cell and the benchmark remain confounded there alone.
 
 \begin{figure}[H]
@@ -1185,7 +1185,7 @@ Recurrent hidden dimension             & $192$ \\
 \begin{table}[H]
 \centering
 \caption{Hyperparameters for the Foragax NeverEndingRelearning experiment
-(Section~\ref{sec:foragax}). Stream RQ($\lambda$) and intentional RQ($\lambda$)
+(Appendix~\ref{sec:foragax}). Stream RQ($\lambda$) and intentional RQ($\lambda$)
 share the network, discount, trace decay and exploration schedule and differ
 only in the optimizer.}
 \label{tab:hparams-foragax}
