@@ -483,7 +483,12 @@ updates, and more reliably under the one whose step size transfers.
 Stream RAC($\lambda$) and recurrent \gls{ppo} are statistically indistinguishable on most of the
 benchmark (Figure~\ref{fig:brax}). Bootstrapping the difference of means over the 10 seeds per cell separates only three of eight, with \gls{ppo} ahead on
 Ant-V and Walker2d-P, stream RAC($\lambda$) on Hopper-V, and the other five overlap. Appendix~\ref{sec:stepsize} lists the
-per-cell intervals. We therefore claim parity rather than an advantage.
+per-cell intervals. We therefore claim parity rather than an advantage. That claim is only as
+good as its baseline, so we bracket the one \gls{ppo} setting left at its published value while
+the streaming trace decay was tuned. At $2$M frames with 10 seeds the default GAE $\lambda$ of
+$0.95$ reaches $1121$ on masked Hopper against $927$ at $0.9$ and $1112$ at $0.99$, and $1164$ on
+masked Walker2d against $1026$ at $0.9$, so it sits at the top of the bracket rather than below
+it.
 
 Most of the difference from the setting these methods ship with is the trace decay, since at
 $\lambda = 0.8$ stream RAC($\lambda$) reaches $262$ on Hopper-P against $1550$ at $0.99$, a
