@@ -73,7 +73,7 @@ We show that exact real-time recurrent learning (\gls{rtrl}) over a diagonal rec
 
 \gls{rtrl} \citep{williams1989learning} maintains the recurrent gradient forward in time and is the natural fit for streaming, but its cost is quartic in the hidden size for general recurrences. It becomes linear in the parameter count when the state-to-state Jacobian is diagonal, since each parameter then influences only its own unit. \gls{rtu}s \citep{elelimy2024real}, minGRUs \citep{feng2024were} and diagonal state-space models \citep{orvieto2023resurrecting} all satisfy this, where a \gls{gru} \citep{cho2014properties} or \gls{lstm} \citep{hochreiter1997long} does not. Prior work has trained such cells with \gls{ppo} \citep{schulman2017proximal, elelimy2024real} or with approximate forward-mode gradients inside a TD($\lambda$) actor-critic \citep{lemmel2025rtrrl}. We insert exact \gls{rtrl} into existing streaming algorithms unchanged and analyse the resulting update. The \gls{rtrl} sensitivity trace and the eligibility trace form one triangular linear system whose slower mode, the larger of the trace decay $\gamma\lambda$ and the retention $\rho$ of the recurrence, sets the rate at which credit on past steps decays, while TBPTT(1) decays at $\gamma\lambda$ alone.
 
-The evidence is of three kinds. Measurements on trained agents show the truncated weight tracking $\gamma\lambda$ while the exact weight does not, and that retention is learned by minGRU but supplied by \gls{rtu}'s initialisation. On trace conditioning (Figure~\ref{fig:trace}) and MemoryChain, exact \gls{rtrl} tracks horizons up to four times longer than TBPTT(1), and on MemoryChain the reachable chain length grows with $\lambda$ under one-step truncation while exact \gls{rtrl} extends it further at every $\lambda$, by one grid step under RQRC($\lambda$) and to $L{=}256$ independently of $\lambda$ under the intentional update. On eleven POPGym tasks the recurrent agents beat the identical updates without a recurrence on six to nine depending on the algorithm, on masked MuJoCo they reach parity with recurrent \gls{ppo}, and on Foragax they keep relearning under a flipping reward. We do not claim state-of-the-art performance on any single benchmark.
+The evidence is of three kinds, namely credit weights measured on trained agents, which track $\gamma\lambda$ under truncation and the retention of the recurrence under exact \gls{rtrl}, credit horizons on trace conditioning (Figure~\ref{fig:trace}) and MemoryChain that reach four times further than TBPTT(1), and control on POPGym, masked MuJoCo and continual foraging against recurrent \gls{ppo} at matched capacity. We do not claim state-of-the-art performance on any single benchmark.
 
 
 
@@ -103,9 +103,8 @@ The evidence is of three kinds. Measurements on trained agents show the truncate
     (Appendices~\ref{sec:lambda} and~\ref{sec:stepsize-analysis}).
     \item Streaming deep RL for partial observability with exact \gls{rtrl} over any
     diagonal-Jacobian recurrence, instantiated with \gls{rtu}s and minGRUs in five streaming
-    algorithms, evaluated on trace conditioning, MemoryChain, POPGym, masked MuJoCo and
-    continual foraging against recurrent \gls{ppo} at matched capacity, with a staleness bound
-    for the sensitivity matrix under streaming updates in Appendix~\ref{sec:staleness-proof}.
+    algorithms, with a staleness bound for the sensitivity matrix under streaming updates in
+    Appendix~\ref{sec:staleness-proof}.
 \end{itemize}
 
 \section{Background}
