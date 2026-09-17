@@ -85,7 +85,7 @@ def main():
                     centres.append(centre)
                     spreads.append(spread)
                 centres, spreads = np.array(centres), np.array(spreads)
-                label = LABELS[cell] if cell == "ffn" else f"{LABELS[cell]}, {mode}"
+                label = LABELS[cell] if cell == "ffn" else f"{LABELS[cell]} - {mode}"
                 axis.plot(isis, centres, style, color=COLOURS[cell], linewidth=1.0, label=label)
                 axis.fill_between(isis, centres - spreads, centres + spreads, color=COLOURS[cell], alpha=0.2, linewidth=0)
         axis.set_xscale("log", base=2)
@@ -100,7 +100,7 @@ def main():
             spine.set_linewidth(plt.rcParams["axes.linewidth"])
     np.atleast_1d(axes)[0].set_ylabel("Return error (MSRE)", fontsize=label_size)
     handles, labels = np.atleast_1d(axes)[0].get_legend_handles_labels()
-    figure.legend(handles, labels, loc="outside upper center", ncol=len(labels), frameon=False, fontsize=tick_size)
+    figure.legend(handles, labels, loc="outside upper center", ncol=len(labels), frameon=False, fontsize=plt.rcParams["legend.fontsize"], handlelength=1.4, handletextpad=0.4, columnspacing=1.0)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(OUTPUT)
     print(f"wrote {OUTPUT}")
