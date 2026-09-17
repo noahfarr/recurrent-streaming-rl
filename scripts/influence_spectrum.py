@@ -11,8 +11,8 @@ from src import algorithm
 
 CONFIG_DIR = "/home/farr/recurrent-streaming-rl/config"
 NUM_SEEDS = 2
-NUM_CHUNKS = 5
-STEPS_PER_CHUNK = 20_000
+NUM_CHUNKS = 4
+STEPS_PER_CHUNK = 5_000
 
 ENVIRONMENTS = {
     "repeat_previous": ["environment=popgymnax/repeat_previous/easy"],
@@ -43,7 +43,8 @@ def spectrum_report(influence):
 def main():
     name = sys.argv[1] if len(sys.argv) > 1 else "repeat_previous"
     cell = sys.argv[2] if len(sys.argv) > 2 else "gru"
-    print(f"environment={name} cell={cell} seeds={NUM_SEEDS}")
+    hidden = sys.argv[3] if len(sys.argv) > 3 else "32"
+    print(f"environment={name} cell={cell} hidden_dim={hidden} seeds={NUM_SEEDS}")
 
     with initialize_config_dir(config_dir=CONFIG_DIR, version_base=None):
         cfg = compose(
@@ -52,6 +53,7 @@ def main():
                 "algorithm=stream_ac",
                 *ENVIRONMENTS[name],
                 f"cell={cell}",
+                f"cell.config.hidden_dim={hidden}",
                 "mode=rtrl",
                 f"num_seeds={NUM_SEEDS}",
                 "total_timesteps=1",

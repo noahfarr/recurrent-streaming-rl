@@ -3,6 +3,11 @@
 algorithm:
   trace_lambda: 0.95
 
+q_optimizer:
+  max_grad_norm: null
+h_optimizer:
+  max_grad_norm: null
+
 total_timesteps: 5_000_000
 num_epochs: 25
 

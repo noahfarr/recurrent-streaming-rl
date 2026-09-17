@@ -3,5 +3,8 @@ defaults:
   - gpu
   - _self_
 
-# With dgx-station excluded, this resolves to gn11 only (same as vram48gb).
-sbatch_arguments: "--output=logs/stdout-%a --error=logs/stderr-%a --exclude=dgx-station --constraint=vram32gb"
+sbatch_arguments:
+  - "--output=logs/stdout-%a"
+  - "--error=logs/stderr-%a"
+  - "--exclude=dgx-station"
+  - "--constraint=vram32gb"

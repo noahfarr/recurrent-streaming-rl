@@ -3,5 +3,8 @@ defaults:
   - gpu
   - _self_
 
-# v100 lives only on dgx-station, so this device must NOT exclude it.
-sbatch_arguments: "--output=logs/stdout-%a --error=logs/stderr-%a --constraint=v100"
+sbatch_arguments:
+  - "--output=logs/stdout-%a"
+  - "--error=logs/stderr-%a"
+  - "--exclude=dgx-station"
+  - "--constraint=v100"

@@ -1,5 +1,7 @@
 total_timesteps: 500_000
 num_epochs: 10
+max_epochs: null
+checkpoint: last
 num_episodes: 0
 learning_starts: 0
 seed: 0
@@ -7,12 +9,15 @@ num_seeds: 1
 precision: float32
 auxiliary_loss_weight: 0.0
 time_aware: true
+freeze_cell: false
 
 groups: ${groups:}
 
 loggers: {}
 
 hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${oc.env:SLURM_ARRAY_TASK_ID,0}
   sweep:
     dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}-${oc.env:SLURM_ARRAY_TASK_ID,0}
 

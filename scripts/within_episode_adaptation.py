@@ -45,15 +45,26 @@ def main():
     episodes = int(sys.argv[2]) if len(sys.argv) > 2 else 200
     horizon = 51
 
-    agent = build([
+    optimizer = sys.argv[3] if len(sys.argv) > 3 else "obgd"
+    cell = sys.argv[4] if len(sys.argv) > 4 else "ffn"
+    mode = sys.argv[5] if len(sys.argv) > 5 else "bptt"
+    overrides = [
         "algorithm=stream_q",
-        "cell=ffn",
-        "mode=bptt",
+        f"cell={cell}",
+        f"mode={mode}",
         "environment=popgymnax/repeat_first/easy",
         "num_seeds=1",
         f"total_timesteps={steps}",
         "num_epochs=1",
-    ])
+    ]
+    if optimizer != "obgd":
+        overrides += [
+            f"optimizer@q_optimizer={optimizer}",
+            "~q_optimizer.cfg.lr",
+            "~q_optimizer.cfg.kappa",
+        ]
+    agent = build(overrides)
+    print(f"optimizer={optimizer} cell={cell} mode={mode}")
     state = jax.jit(agent.init)(jax.random.key(0))
     train = jax.jit(lox.spool(agent.train), static_argnums=(2,))
     for index in range(4):

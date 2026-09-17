@@ -67,8 +67,11 @@ def main(cfg):
         )
 
     train_keys = jax.random.split(train_key, cfg.num_epochs)
+    max_epochs = int(cfg.get("max_epochs", 0) or 0) or cfg.num_epochs
+    checkpoint = str(cfg.get("checkpoint", "last"))
+    assert checkpoint in ("never", "last", "every_epoch")
     cost = 0.0
-    for epoch in range(cfg.num_epochs):
+    for epoch in range(max_epochs):
         (state, logs), SPS = train(
             jax.random.split(train_keys[epoch], cfg.num_seeds), state, num_steps
         )
@@ -114,17 +117,24 @@ def main(cfg):
         steps = jnp.array([epoch, epoch + 1]) * num_steps
         logger.log(data, steps=steps)
 
-        logger.log_artifact(
-            algorithm.policy_params(state),
-            epoch,
-            metrics={"episode_returns": jnp.concatenate(episode_returns).mean()},
-        )
+        if checkpoint == "every_epoch" or (
+            checkpoint == "last" and epoch == max_epochs - 1
+        ):
+            logger.log_artifact(
+                algorithm.policy_params(state),
+                epoch,
+                metrics={"episode_returns": jnp.concatenate(episode_returns).mean()},
+            )
 
-    score = float(jnp.concatenate(episode_returns).mean())
+    if "return_error" in logs:
+        seed_scores = -jnp.nanmean(logs["return_error"].reshape(cfg.num_seeds, -1), axis=1)
+    else:
+        seed_scores = jnp.array([r.mean() for r in episode_returns])
+    score = float(jnp.nanmean(seed_scores))
     cost = float(cost)
     logger.log_summary(
         {
-            "score": jnp.array([r.mean() for r in episode_returns]),
+            "score": seed_scores,
             "cost": jnp.full((cfg.num_seeds,), cost),
         }
     )

@@ -1,13 +1,17 @@
 import functools
+import sys
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 from popgymnax.environments import (
     popgym_autoencode,
+    popgym_battleship,
     popgym_concentration,
     popgym_count_recall,
     popgym_higherlower,
+    popgym_minesweeper,
+    popgym_multiarmedbandit,
     popgym_repeat_first,
 )
 
@@ -34,6 +38,93 @@ def obs_index_higher_lower(obs):
 
 def obs_index_count_recall(obs):
     return jnp.argmax(obs[:2]) * 2 + jnp.argmax(obs[2:4])
+
+
+def obs_index_battleship(obs):
+    return (obs[0] > 0).astype(jnp.int32)
+
+
+def obs_index_minesweeper(obs):
+    return jnp.argmax(obs)
+
+
+def obs_index_bandit(obs):
+    return (obs[0] > 0).astype(jnp.int32)
+
+
+def cycle_init(num_obs, num_actions, stride):
+    table = np.zeros((num_obs * num_actions * 2,), dtype=np.int32)
+    for obs_index in range(num_obs):
+        for prev_action in range(num_actions):
+            for first in range(2):
+                table[obs_index * num_actions * 2 + prev_action * 2 + first] = (
+                    prev_action + stride
+                ) % num_actions
+    return jnp.asarray(table)
+
+
+def stay_shift_init(num_obs, num_actions, stride):
+    table = np.zeros((num_obs * num_actions * 2,), dtype=np.int32)
+    for obs_index in range(num_obs):
+        for prev_action in range(num_actions):
+            for first in range(2):
+                action = (
+                    prev_action
+                    if obs_index == 1
+                    else (prev_action + stride) % num_actions
+                )
+                table[obs_index * num_actions * 2 + prev_action * 2 + first] = action
+    return jnp.asarray(table)
+
+
+def action_ceiling(name, env, obs_index_fn, num_obs, horizon, extra_inits, sweeps=8):
+    params = env.default_params
+    num_actions = env.action_space(params).n
+    _, action_fn, _ = make_contexts(obs_index_fn, num_actions)
+    num_contexts = num_obs * num_actions * 2
+    inits = list(extra_inits)
+    inits += [
+        jax.random.randint(k, (num_contexts,), 0, num_actions, dtype=jnp.int32)
+        for k in jax.random.split(jax.random.key(17), 2)
+    ]
+    heldout = jax.jit(
+        functools.partial(
+            evaluate,
+            env,
+            params,
+            context_fn=action_fn,
+            horizon=horizon,
+            keys=jax.random.split(jax.random.key(1000), HELDOUT),
+        )
+    )
+    value, _ = ascend(
+        env, params, action_fn, num_contexts, num_actions, horizon, inits, sweeps=sweeps
+    )
+    for index, init in enumerate(extra_inits):
+        baseline = float(heldout(init))
+        print(f"  init {index}: {baseline:+.4f}", flush=True)
+        value = max(value, baseline)
+    print(f"{name:<14} {value:>+14.3f}  (pi(a|o,a,t0))")
+    return value
+
+
+def battleship_ceiling():
+    env = popgym_battleship.BattleshipEasy()
+    inits = [cycle_init(2, 64, stride) for stride in (1, 3, 5, 8)]
+    return action_ceiling("Battleship", env, obs_index_battleship, 2, 64, inits)
+
+
+def minesweeper_ceiling():
+    env = popgym_minesweeper.MineSweeperEasy()
+    inits = [cycle_init(3, 16, stride) for stride in (1, 3, 5, 7)]
+    return action_ceiling("MineSweeper", env, obs_index_minesweeper, 3, 16, inits)
+
+
+def bandit_ceiling():
+    env = popgym_multiarmedbandit.MultiarmedBanditEasy()
+    inits = [cycle_init(2, 10, 1)]
+    inits += [stay_shift_init(2, 10, stride) for stride in (1, 3)]
+    return action_ceiling("MultiArmedBandit", env, obs_index_bandit, 2, 200, inits)
 
 
 def make_contexts(obs_index_fn, num_actions):
@@ -178,7 +269,52 @@ def concentration_random(env, params, keys):
     return float(jnp.mean(jax.vmap(episode)(keys)))
 
 
+def concentration_deterministic(env, params, keys):
+    def episode(key):
+        key, reset_key = jax.random.split(key)
+        obs, state = env.reset_env(reset_key, params)
+
+        def body(carry, step_key):
+            obs, state, done, total = carry
+            hidden = jnp.reshape(obs, (env.num_cards, env.num_types + 1))[:, env.num_types]
+            action = jnp.argmax(hidden)
+            next_obs, next_state, reward, terminated, _ = env.step_env(
+                step_key, state, action, params
+            )
+            total = total + jnp.where(done, 0.0, reward)
+            return (next_obs, next_state, jnp.logical_or(done, terminated), total), None
+
+        step_keys = jax.random.split(key, env.episode_length)
+        (_, _, _, total), _ = jax.lax.scan(body, (obs, state, jnp.array(False), 0.0), step_keys)
+        return total
+
+    return float(jnp.mean(jax.vmap(episode)(keys)))
+
+
+def concentration_ceiling():
+    env = popgym_concentration.ConcentrationEasy()
+    params = env.default_params
+    keys = jax.random.split(jax.random.key(1000), HELDOUT)
+    uniform = concentration_random(env, params, keys)
+    lowest = concentration_deterministic(env, params, keys)
+    print(f"  uniform over hidden:       {uniform:+.4f}")
+    print(f"  lowest-index hidden:       {lowest:+.4f}")
+    value = max(uniform, lowest)
+    print(f"{'Concentration':<14} {value:>+14.3f}  (reactive, exchangeable)")
+    return value
+
+
 def main():
+    if len(sys.argv) > 1:
+        selected = {
+            "battleship": battleship_ceiling,
+            "minesweeper": minesweeper_ceiling,
+            "bandit": bandit_ceiling,
+            "concentration": concentration_ceiling,
+        }
+        for name in sys.argv[1].split(","):
+            selected[name]()
+        return
     tasks = [
         ("Autoencode", popgym_autoencode.AutoencodeEasy(), obs_index_autoencode, 5, 4, 103),
         ("CountRecall", popgym_count_recall.CountRecallEasy(), obs_index_count_recall, 4, 27, 51),

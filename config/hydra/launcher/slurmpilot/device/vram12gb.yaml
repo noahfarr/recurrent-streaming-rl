@@ -3,4 +3,8 @@ defaults:
   - gpu
   - _self_
 
-sbatch_arguments: "--output=logs/stdout-%a --error=logs/stderr-%a --exclude=dgx-station --constraint=vram12gb"
+sbatch_arguments:
+  - "--output=logs/stdout-%a"
+  - "--error=logs/stderr-%a"
+  - "--exclude=dgx-station"
+  - "--constraint=vram12gb"
