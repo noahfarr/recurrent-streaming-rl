@@ -6,6 +6,7 @@
 \usepackage{amssymb}
 \usepackage{amsthm}
 \usepackage{mathtools}
+\usepackage{nicefrac}
 \usepackage{mathrsfs}
 \usepackage{graphicx}
 \usepackage{subcaption}
@@ -192,25 +193,20 @@ The head parameters have no temporal dependency and receive an ordinary
 backward pass. The recurrent parameters enter only through
 $\boldsymbol{h}_t$, so combining the backward pass through the head with
 $\boldsymbol{S}_t$ yields their gradient across the entire history at
-$\mathcal{O}(|\boldsymbol{\psi}|)$ per step. The encoder parameters are
-more complicated. They influence the state both instantaneously through
-$\boldsymbol{x}_t$ and recursively through every past state. Maintaining the exact
-trace would cost $\mathcal{O}(|\boldsymbol{\theta}|\cdot\dim \boldsymbol{h})$ per step,
-prohibitive for a deep encoder. We therefore use a one-step
-approximation, backpropagating through the head, a single step of the
-recurrence, and the encoder. This credits the encoder for its immediate
-effect on $\boldsymbol{h}_t$ while ignoring its influence through past
-states.
+$\mathcal{O}(|\boldsymbol{\psi}|)$ per step. The encoder parameters influence the state both
+instantaneously through $\boldsymbol{x}_t$ and recursively through every past state, and an
+exact trace for them would cost
+$\mathcal{O}(|\boldsymbol{\theta}|\cdot\dim \boldsymbol{h})$ per step, prohibitive for a deep
+encoder. We therefore backpropagate through the head, a single step of the recurrence and the
+encoder, which credits the encoder for its immediate effect on $\boldsymbol{h}_t$ while ignoring
+its influence through past states.
 
 \paragraph{Composition with eligibility traces.}
-Operationally the two traces compose without modification. The \gls{rtrl}
-trace is a forward-mode object that maintains
-$\partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$ at each step; the eligibility
-trace is a temporal accumulator of whatever per-step gradient the streaming
-algorithm supplies. Each recurrent layer supplies its
-$\partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$ on demand whenever the streaming
-update needs the gradient with respect to its recurrent parameters, and the
-eligibility trace folds this into its usual recursion.
+Operationally the two traces compose without modification. The \gls{rtrl} trace is a
+forward-mode object that maintains $\partial \boldsymbol{h}_t / \partial \boldsymbol{\psi}$ at
+each step, and the eligibility trace is a temporal accumulator of whatever per-step gradient the
+streaming algorithm supplies. Each recurrent layer hands over its sensitivity on demand and the
+eligibility trace folds it into the usual recursion.
 
 Their effects on credit assignment, however, are not independent. The bound below governs how
 credit is weighted, not whether any is available to assign.
@@ -265,28 +261,50 @@ the ratio of the two weights on the same immediate Jacobian separates into two r
     \label{eq:amplification}
 \end{equation}
 since the geometric sum collapses to $n+1$ equal terms when the modes coincide and is dominated
-by its last otherwise. Exact \gls{rtrl} therefore amplifies distant credit linearly or
-exponentially in the lag, and offers no advantage in decay rate only when
-$\rho < \gamma\lambda$. We measure the rates directly below.
+by its last otherwise. Exact \gls{rtrl} therefore amplifies distant credit, linearly in the lag
+when $\rho \approx \gamma\lambda$, exponentially when $\rho > \gamma\lambda$, and at no better
+rate when $\rho < \gamma\lambda$.
 
+
+\begin{table}[t]
+\centering
+\caption{Decay of the credit weight $\|\boldsymbol{\omega}_k\|$ with lag on trained MemoryChain
+agents, $L{=}64$ and medians over $10$ seeds, against the rates of
+Proposition~\ref{prop:composition}, $\gamma\lambda$ for TBPTT(1) and $\max(\gamma\lambda,\rho)$
+for \gls{rtrl} with $\rho$ the measured retention. The last column is the amplification of exact
+\gls{rtrl} over TBPTT(1) at lag $32$.}
+\label{tab:weights}
+\small
+\setlength{\tabcolsep}{3.8pt}
+\begin{tabular}{llllccc}
+\toprule
+Cell & $\lambda$ & $\gamma\lambda$ & $\rho$ &
+$\|\boldsymbol{\omega}^{\mathrm{TBPTT(1)}}\|^{1/n}$ &
+$\|\boldsymbol{\omega}^{\mathrm{\gls{rtrl}}}\|^{1/n}$ &
+$\nicefrac{\|\boldsymbol{\omega}^{\mathrm{\gls{rtrl}}}\|}{\|\boldsymbol{\omega}^{\mathrm{TBPTT(1)}}\|}$ \\
+\midrule
+minGRU & $1$    & $0.999$ & $0.9993$ & $0.9995$ & $1.0140$ & $20.1$ \\
+minGRU & $0.98$ & $0.979$ & $0.9995$ & $0.9791$ & $0.9942$ & $33.2$ \\
+\gls{rtu}    & $1$    & $0.999$ & $0.9989$ & $0.9972$ & $1.0193$ & $6.4$ \\
+\gls{rtu}    & $0.98$ & $0.979$ & $0.9989$ & $0.9786$ & $1.0007$ & $9.2$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{The two channels separate in measurement.}
 \label{sec:weights}
-Freezing a trained agent and measuring $\|\boldsymbol{\omega}_k\|$ against lag on MemoryChain
-($L{=}64$, medians over 10 seeds), the TBPTT(1) weight decays at $\gamma\lambda$ to within
-$0.2\%$ in every configuration, while the \gls{rtrl} weight does not follow $\gamma\lambda$:
-dropping $\lambda$ from $1$ to $0.98$ moves the fitted TBPTT(1) rate from $0.999$ to $0.979$ and
-leaves the \gls{rtrl} rate at $0.994$ or above. Over $32$ lags that rate sits at or just above
-one, the $n+1$ prefactor of the near-degenerate regime $\rho \approx \gamma\lambda$ rather than
-a decay, so the bound orders the two channels without being tight on either. The amplification
-at lag $32$ is cell-dependent, $20$ to $33$ for minGRU against $6$ to $9$ for \gls{rtu}, which
-the same measurements attribute to phase cancellation, since minGRU's coherence is exactly $1$ at
-every lag because its retentions are real and positive, while \gls{rtu}'s complex rotation
-drives it to $0.23$--$0.46$ by lag $32$. What the measurements do not establish is sufficiency,
-since the credit horizon exceeds the observed solvable chain in every cell of every grid.
-Appendix~\ref{sec:credit-appendix} gives the protocol, the fitted rates and the effect of
-exploration cuts, which favour \gls{rtrl} because zeroing the eligibility trace on a non-greedy
-action leaves the influence matrix intact.
+We freeze trained agents and measure $\|\boldsymbol{\omega}_k\|$ against lag on MemoryChain at
+$L{=}64$, with medians over 10 seeds. Table~\ref{tab:weights} reports the fitted rates. The
+TBPTT(1) weight tracks $\gamma\lambda$ at both trace decays, while the \gls{rtrl} weight stays
+near one and barely moves when $\lambda$ drops, since the recurrence retains what the trace
+discards. That places it in the near-degenerate regime $\rho \approx \gamma\lambda$, so
+\eqref{eq:amplification} orders the two channels without being tight on either. The
+amplification at lag $32$ spans one to one and a half orders of magnitude and is cell-dependent,
+larger for minGRU than for \gls{rtu}, which the same measurements attribute to phase
+cancellation under \gls{rtu}'s complex rotation.
+Appendix~\ref{sec:credit-appendix} gives the protocol, the per-lag measurements and the
+effect of exploration cuts, which favour \gls{rtrl} because zeroing the eligibility trace on a
+non-greedy action leaves the influence matrix intact.
 
 \paragraph{Instantiations.} We evaluate on five streaming algorithms covering prediction,
 value-based control and policy-based control, namely stream TD($\lambda$), stream Q($\lambda$) and
@@ -359,28 +377,26 @@ return exceeds $0.5$, and all non-recurrence hyperparameters are matched across 
 \paragraph{The trace decay controls this gap.}
 Proposition~\ref{prop:composition} predicts that this comparison is specific to the regime
 $\rho > \gamma\lambda$, since the eligibility trace and the \gls{rtrl} trace carry credit in
-parallel and the slower mode dominates. At $\lambda{=}0.8$ and $\gamma{=}0.99$ the trace mode
+parallel and the slower mode dominates. At $\lambda{=}0.8$ and $\gamma{=}0.999$ the trace mode
 decays with an effective horizon of roughly five steps, which is consistent with the collapse
-observed past $L{=}16$; the recurrent gradient is then the only channel that remains.
-Raising $\lambda$ to one removes that limit. Figure~\ref{fig:memory_chain_lambda} sweeps both
-quantities jointly under otherwise identical settings ($\gamma{=}0.999$, minGRU recurrence,
-$16$--$32$ seeds per cell) for three streaming algorithms. Section~\ref{sec:weights} measures
+observed past $L{=}16$, leaving the recurrent gradient as the only channel. Raising $\lambda$ to
+one removes that limit, and Figure~\ref{fig:memory_chain_lambda} sweeps both quantities jointly.
+Section~\ref{sec:weights} measures
 $\rho \approx 0.999$ on this task, a retention horizon of roughly a thousand steps and longer
 than any chain in the sweep, so the prediction is that the TBPTT(1) boundary moves with
 $\lambda$ while the \gls{rtrl} boundary need not.
 Under RQRC($\lambda$) the longest chain TBPTT(1) solves on a majority of seeds grows with the
 trace horizon $(1-\gamma\lambda)^{-1}$, from $L{=}16$ at $\lambda{=}0.8$ to $L{=}128$ at
-$\lambda{=}0.995$, though sublinearly, with the ratio $L/(1-\gamma\lambda)^{-1}$ falls from $3.2$ to
-$0.77$ across the sweep. Exact \gls{rtrl} moves that boundary one grid step deeper at every
+$\lambda{=}0.995$, though sublinearly, since the ratio $L/(1-\gamma\lambda)^{-1}$ falls from
+$3.2$ to $0.77$ across the sweep. Exact \gls{rtrl} moves that boundary one grid step deeper at every
 $\lambda$ but one, and its advantage is largest along the boundary, reaching $0.69$ at
 $L{=}32,\lambda{=}0.8$. The advantage vanishes in two limits the figure keeps distinct, since at high
 $\lambda$ the trace already spans the episode and the two channels coincide, while at long $L$
-neither method succeeds. We do not attribute the latter to the recurrence losing the cue, since
-the same minGRU solves $L{=}256$ under the intentional update at every $\lambda$.
+neither method succeeds.
 
 The ordering is algorithm-independent and the reachable horizon is not. Exact \gls{rtrl} is at
 least as good as TBPTT(1) in every cell of all three grids but one, with mean gains of $+0.13$,
-$+0.14$ and $+0.25$, while the absolute reach differs by an order of magnitude, with stream
+$+0.14$ and $+0.25$, while the absolute reach differs by an order of magnitude. Stream
 RQ($\lambda$) never passes $L{=}64$, whereas under intentional RQ($\lambda$) exact \gls{rtrl}
 solves $L{=}256$ at every $\lambda$ including $0.8$, where the trace spans five steps. That
 $\lambda$-independence is what Proposition~\ref{prop:composition} predicts for the \gls{rtrl}
@@ -644,6 +660,7 @@ method still succeeds on a majority of seeds.
 \section{Credit weight measurements in detail}
 
 \subsection{Protocol and full measurements}
+\label{sec:credit-appendix}
 
 \paragraph{Task and design.}
 Proposition~\ref{prop:composition} predicts the weight each update places on the immediate
@@ -682,25 +699,6 @@ sufficiency: the credit horizon exceeds the observed solvable chain in every cel
 
 
 
-
-\begin{table}[H]
-\centering
-\caption{Decay of the credit weight $\|\boldsymbol{\omega}_k\|$ with lag on trained MemoryChain agents ($L{=}64$, medians over $10$ seeds) against the rates of Proposition~\ref{prop:composition}: $\gamma\lambda$ for TBPTT(1) and $\max(\gamma\lambda, \rho)$ for RTRL, with $\rho$ the measured retention. The TBPTT(1) rate follows $\gamma\lambda$ across both trace decays while the \gls{rtrl} rate does not; the last column is the amplification of exact RTRL over TBPTT(1) at lag $32$.}
-\label{tab:weights}
-\begin{tabular}{llllccc}
-\toprule
-Cell & $\lambda$ & $\gamma\lambda$ & $\rho$ &
-$\|\boldsymbol{\omega}^{\mathrm{TBPTT(1)}}\|^{1/n}$ &
-$\|\boldsymbol{\omega}^{\mathrm{\gls{rtrl}}}\|^{1/n}$ & Ratio at $n{=}32$ \\
-\midrule
-minGRU & $1$    & $0.9990$ & $0.9993$ & $0.9995$ & $1.0140$ & $20.1$ \\
-minGRU & $0.98$ & $0.9790$ & $0.9995$ & $0.9791$ & $0.9942$ & $33.2$ \\
-\gls{rtu}    & $1$    & $0.9990$ & $0.9989$ & $0.9972$ & $1.0193$ & $6.4$ \\
-\gls{rtu}    & $0.98$ & $0.9790$ & $0.9989$ & $0.9786$ & $1.0007$ & $9.2$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-\label{sec:credit-appendix}
 
 This appendix records the full per-lag measurements behind Table~\ref{tab:weights} and the
 discussion of Section~\ref{sec:weights}.
