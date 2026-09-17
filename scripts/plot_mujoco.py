@@ -197,7 +197,7 @@ def main():
     tick_size = plt.rcParams["xtick.labelsize"]
     figure, axes = plt.subplots(
         len(MODES), len(TASKS),
-        figsize=(FIG_WIDTH, SUBPLOT_HEIGHT * 1.42 * len(MODES)),
+        figsize=(FIG_WIDTH, SUBPLOT_HEIGHT * 1.16 * len(MODES)),
         sharex=True,
         constrained_layout=True,
     )
