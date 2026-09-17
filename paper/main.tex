@@ -326,7 +326,7 @@ Trace conditioning (Section~\ref{sec:trace}) tests the credit horizon on pure pr
 POPGym (Section~\ref{sec:popgym}) tests whether the streaming method is competitive with a recurrent baseline that reuses each transition, on long-memory discrete control.
 Masked MuJoCo (Section~\ref{sec:mujoco}) extends the evaluation to continuous control.
 Foragax (Section~\ref{sec:foragax}) tests continual relearning under a periodically inverted reward.
-All curves report the interquartile mean (IQM) with shaded standard error, and seed counts vary by experiment and are stated in each caption. The recurrence is not held constant, and each benchmark uses the cell from the work it comes from, minGRU for MemoryChain and \gls{rtu} elsewhere, chosen from the source rather than from performance on the benchmark. The choice still matters, since minGRU reaches longer chains on MemoryChain, where its real positive retentions accumulate coherently and \gls{rtu}'s complex rotation cancels, the same effect Section~\ref{sec:weights} measures. Appendix~\ref{sec:popgym-cells} repeats POPGym with the other two.
+All curves report the interquartile mean (IQM) with shaded standard error, and seed counts vary by experiment and are stated in each caption. The recurrence is not held constant. MemoryChain uses minGRU, which reaches longer chains there than \gls{rtu} does, because real positive retentions accumulate coherently where a complex rotation cancels, the same effect Section~\ref{sec:weights} measures. Trace conditioning reports both cells and the remaining benchmarks use \gls{rtu}. Appendix~\ref{sec:popgym-cells} repeats POPGym with the other two so the cell and the benchmark are not confounded there.
 Hyperparameters, network architectures, and per-task details are listed in Appendix \ref{sec:hyperparameters}.
  
 \subsection{Trace conditioning}
@@ -992,10 +992,10 @@ recurrent \gls{ppo}        & ---                         & $1121 \pm 50$  & $116
 \label{sec:popgym-cells}
 
 The recurrence is not held constant across benchmarks, since MemoryChain uses minGRU, POPGym and
-masked MuJoCo use \gls{rtu}, and trace conditioning reports both. We chose each from the cell
-that the corresponding source paper used, not from performance on the benchmark, but the choice
-matters, since at $\lambda{=}1$ and $L{=}128$ a minGRU solves $60\%$ of seeds where an \gls{rtu}
-solves none. Figures~\ref{fig:popgym-mingru}
+masked MuJoCo use \gls{rtu}, and trace conditioning reports both. MemoryChain uses minGRU because
+it reaches longer chains there, and the two cells order differently on the other benchmarks,
+since \gls{rtu} leads minGRU at every interstimulus interval but $80$ in
+Section~\ref{sec:trace}. Figures~\ref{fig:popgym-mingru}
 and~\ref{fig:popgym-ffn} therefore repeat the POPGym sweep with a minGRU recurrence and with a
 memoryless network, at the same budget and seed count as the \gls{rtu} figure in
 Section~\ref{sec:popgym}. The ordering among algorithms is largely preserved, but the cell matters where the
