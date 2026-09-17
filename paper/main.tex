@@ -682,17 +682,17 @@ across all three algorithms of Section~\ref{sec:memory_chain}.
 
 Three further facts come out of the same measurements, detailed in
 Appendix~\ref{sec:credit-appendix}. The amplification is cell-dependent, $20$ to $33$ at
-$n{=}32$ for minGRU against $6$ to $9$ for \gls{rtu}, and the cause is phase cancellation:
+$n{=}32$ for minGRU against $6$ to $9$ for \gls{rtu}, and the cause is phase cancellation, since
 minGRU's coherence $\|\sum_i \boldsymbol{t}_i\| / \sum_i \|\boldsymbol{t}_i\|$ is exactly $1$ at
 every lag because its retentions are real and positive, while \gls{rtu}'s complex rotation
 drives it to $0.23$--$0.46$ by $n{=}32$. Retention is learned for minGRU, which begins at
 $\rho{=}0.5$ and reaches $0.981$ to $0.99995$ depending on the algorithm, and initialised for
-\gls{rtu}, which begins at $0.997$. And exploration cuts favour \gls{rtrl}: both implementations
+\gls{rtu}, which begins at $0.997$. And exploration cuts favour \gls{rtrl}, since both implementations
 zero the eligibility trace on a non-greedy action but leave $\boldsymbol{S}_t$ intact, so a cut
 deletes every TBPTT(1) weight before it while the \gls{rtrl} weight survives through the
 influence matrix, which on trained minGRU agents leaves TBPTT(1) with no credit at $n{=}32$ in
 $0.67$ to $0.77$ of rollouts at $\epsilon{=}0.1$. What the measurements do not establish is
-sufficiency: the credit horizon exceeds the observed solvable chain in every cell of every grid.
+sufficiency, since the credit horizon exceeds the observed solvable chain in every cell of every grid.
 
 
 
@@ -718,12 +718,12 @@ $\lambda{=}0.98$.
 The ratio of the two weights grows with the lag, reaching a median of $20$ at
 $n{=}32$ for $\lambda{=}1$ and $33$ for $\lambda{=}0.98$. This growth is roughly
 linear in $n$ at both settings rather than separating into the two regimes of
-\eqref{eq:amplification}: at $\lambda{=}0.98$ the exponential form
+\eqref{eq:amplification}, since at $\lambda{=}0.98$ the exponential form
 $(\rho/\gamma\lambda)^{n}$ evaluates to under $2$ at $n{=}32$, far below what we
 measure, because the sum defining $\boldsymbol{\omega}_k^{\mathrm{\gls{rtrl}}}$
 accumulates on the order of $n$ terms in either regime. The ratio is also the
 noisiest quantity we measure, spanning an order of magnitude across seeds, so we
-draw no regime distinction from it. What is robust is its size: exact \gls{rtrl}
+draw no regime distinction from it. What is robust is its size, since exact \gls{rtrl}
 assigns between one and one and a half orders of magnitude more credit to
 parameter uses several tens of steps in the past, which is the quantity that the
 solve rates in Section~\ref{sec:memory_chain} reflect.
@@ -801,7 +801,7 @@ agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
     \centering
     \includegraphics[width=\linewidth]{plots/foragax/foragax_body.pdf}
     \caption{Continual foraging, 10 seeds. Left and centre compare the algorithms under
-    \gls{rtu}: the reward rate, an exponential moving average that tracks current performance,
+    \gls{rtu}, namely the reward rate, an exponential moving average that tracks current performance,
     and the average reward over the agent's lifetime, the statistic of \citet{tang2026forager}.
     Right compares the recurrences within stream RQ($\lambda$), showing the minimum reward rate reached
     after each of the nine reward flips. Dotted lines mark the flips.}
@@ -821,17 +821,17 @@ agent is the best agent here (Appendix~\ref{sec:stepsize-analysis}).
 
 Every streaming method here sets its step size from a norm of the eligibility trace. That is
 sound when the trace is a decayed sum of recent gradients, because any coordinate carrying
-trace mass has recently carried gradient mass. Exact \gls{rtrl} breaks the assumption: the
+trace mass has recently carried gradient mass. Exact \gls{rtrl} breaks the assumption, since the
 sensitivity gives a coordinate trace mass on steps where its instantaneous gradient is
 negligible. We find the same assumption failing in three different rules.
 
 \paragraph{\gls{obgd} bounds overshoot with an $\ell_1$ norm.} Its step is
 $\alpha/\max(1, \bar{\delta}\|z\|_1 \alpha \kappa)$ with $\bar{\delta} = \max(|\delta|, 1)$,
 which normalised rewards pin at exactly $1$, so the step is set purely by $\|z\|_1$. Under
-\gls{rtrl} the trace is dense and that norm grows through training: on masked Hopper the
+\gls{rtrl} the trace is dense and that norm grows through training, so on masked Hopper the
 actor's $\|z\|_1$ rises from $4.5\times10^3$ to $1.35\times10^4$ and its step falls from
 $8.9\times10^{-5}$ to $3.2\times10^{-5}$, while the critic, whose trace stays flat, is
-unaffected. The mass is also badly distributed: measured on the masked-Hopper actor, the
+unaffected. The mass is also badly distributed, since measured on the masked-Hopper actor the
 \gls{rtu} block holds $91\%$ of the parameters and $19\%$ of the $\ell_1$ gradient mass, while
 the policy head holds $2\%$ of the parameters and $74\%$ of the mass, so one small block sets
 the step for the whole network. Sweeping $\kappa$ and $\eta$ does not repair this
@@ -852,23 +852,23 @@ $v \leftarrow \beta_2 v + (1-\beta_2) g^2$, and then divides the trace by it, bo
 denominator $\sqrt{\hat{\sigma}\sum z^2/m}$ and in the update direction $z/m$. When the
 sensitivity puts mass into coordinates the gradient rarely visits, $v$ stays near zero for
 those coordinates while $z$ does not, and $z^2/m$ is inflated by a preconditioner that never
-saw them. The symptoms follow: on masked Hopper the actor step is sixteen times smaller than
+saw them. The symptoms follow, since on masked Hopper the actor step is sixteen times smaller than
 stream RAC($\lambda$)'s at the same $\lambda$, and on three MuJoCo cells and on Foragax the
 updates become non-finite outright.
 
 \paragraph{Trace preconditioning.} The fix is to estimate the second moment from the trace,
 $v \leftarrow \beta_2 v + (1-\beta_2) z^2$, so the preconditioner covers what it divides.
 Figure~\ref{fig:precondition} shows the effect on Foragax, where intentional RQ($\lambda$)
-with \gls{rtu} is otherwise dead from $700$k frames onward: it recovers to a reward rate of
+with \gls{rtu} is otherwise dead from $700$k frames onward and recovers to a reward rate of
 about $1.7$. The change also helps the memoryless agent, from $1.6$ to $1.9$, which says the
 mismatch is not purely an \gls{rtrl} effect. An eligibility trace at $\lambda = 0.8$ already
 accumulates mass in rarely visited coordinates, and the sensitivity makes an existing problem
-acute. On masked MuJoCo the same change removes the divergence outright: intentional RAC($\lambda$)
+acute. On masked MuJoCo the same change removes the divergence outright, and intentional RAC($\lambda$)
 completes all eight cells on all ten seeds where three previously failed, and improves on seven
 of them.
 
 It is not, however, a better preconditioner in general, and we would discourage adopting it as
-one. Where the original is stable it costs performance: on six POPGym tasks it is worse on every
+one. Where the original is stable it costs performance, since on six POPGym tasks it is worse on every
 one, RepeatPrevious falling from $0.99$ to $0.68$, CountRecall from $-0.53$ to $-0.96$ and
 Battleship from $-0.27$ to $-1.21$. On Foragax it is also a mitigation rather than a cure, since
 the \gls{rtu} run still becomes non-finite late in training and minGRU recovers only to about
@@ -892,7 +892,7 @@ decays at $\max(\gamma\lambda, \rho)$, and with \gls{rtu}'s initialisation $\rho
 recurrent parameters. Their gradient carries the \gls{rtrl} sensitivity, so their credit is
 a convolution of $(\gamma\lambda)^k$ and $\rho^k$ and the slower mode wins. The feature
 extractor and the head have no sensitivity path, so their credit decays at
-$(\gamma\lambda)^k$ alone: a horizon of $4.8$ steps at $\lambda = 0.8$ against the
+$(\gamma\lambda)^k$ alone, a horizon of $4.8$ steps at $\lambda = 0.8$ against the
 recurrence's $333$. The composition therefore buys a long horizon for the recurrence and
 leaves the rest of the network short, and on a masked task the rest of the network is what
 has to learn what the inferred state is worth.
@@ -909,7 +909,7 @@ optimum falls. It says the parameters the sensitivity reaches inherit $\rho$ whi
 the network decays at $\gamma\lambda$, so on a task whose difficulty is state inference the
 non-recurrent parameters are the binding constraint and lengthening their horizon should help;
 it does. It does not say the horizon should be lengthened without limit, and the data show it
-should not: $\lambda = 1$ brings $\gamma\lambda$ closer to $\rho$ than $\lambda = 0.99$ does
+should not, since $\lambda = 1$ brings $\gamma\lambda$ closer to $\rho$ than $\lambda = 0.99$ does
 and performs worse, and the optimum sits at a horizon of $50$ against a retention horizon of
 roughly $333$. That turn is the ordinary bias-variance trade-off of TD($\lambda$), with an
 undecayed trace paying in variance what it gains in bias, and we report it as such rather than
@@ -951,7 +951,7 @@ Lengthening the trace also changes what every streaming step-size rule does, bec
 normalises by a norm of that trace. \gls{obgd} bounds overshoot by $\bar{\delta}\|z\|_1$, so
 a longer trace shrinks its step roughly in proportion and the product of step and trace stays
 stable. The intentional update divides by $\sqrt{\sigma \|z\|^2}$ where $\sigma$ itself grows
-with the trace, so it pays for the extra length twice: on masked Hopper its actor step falls
+with the trace, so it pays for the extra length twice, and on masked Hopper its actor step falls
 from $5.5\times10^{-6}$ at $\lambda=0.8$ to $8.4\times10^{-7}$ at $\lambda=0.99$, sixteen
 times smaller than stream RAC($\lambda$) on the same task, and it recovers far less of the
 gap. Raising $\lambda$ without revisiting the step-size constant is therefore not a safe
@@ -990,7 +990,7 @@ the actor constant of both methods in both directions on the two cells where the
 \gls{ppo} is widest, at 2M frames with 10 seeds and $\lambda = 0.99$, holding each critic
 constant at its default. The two methods behave differently. Stream RAC($\lambda$) peaks at the
 $\kappa_\pi = 3$ it ships with and falls away on both sides, so its constant transfers to this
-setting. Intentional RAC($\lambda$) does not: it peaks at $\eta_\pi = 0.01$, five times smaller
+setting. Intentional RAC($\lambda$) does not, and peaks at $\eta_\pi = 0.01$, five times smaller
 than the published $0.05$, gaining $+429$ on Hopper-P and $+450$ on Walker2d-P, while every
 increase above the default is worse. Section~\ref{sec:mujoco} reports it at the corrected value.
 The same argument that sets $\lambda$ for the recurrence rather than inheriting it applies to the
@@ -1034,7 +1034,7 @@ Section~\ref{sec:trace}. Figures~\ref{fig:popgym-mingru}
 and~\ref{fig:popgym-ffn} therefore repeat the POPGym sweep with a minGRU recurrence and with a
 memoryless network, at the same budget and seed count as the \gls{rtu} figure in
 Section~\ref{sec:popgym}. The ordering among algorithms is largely preserved, but the cell matters where the
-task rewards accumulation: on MultiArmedBandit a minGRU under stream RQ($\lambda$) reaches $0.76$
+task rewards accumulation, since on MultiArmedBandit a minGRU under stream RQ($\lambda$) reaches $0.76$
 against $0.55$ for \gls{rtu}, a gap of $+0.21$ $[+0.20, +0.22]$, and beats its own memoryless
 control by $+0.13$ where \gls{rtu} falls $0.08$ below it. Estimating the value of an arm is a
 running average, which real positive retentions accumulate coherently and a complex rotation does
@@ -1065,7 +1065,7 @@ recurrence, so the cell and the benchmark remain confounded there alone.
 \label{sec:frozen-control}
 
 Table~\ref{tab:frozen} reports the frozen-recurrence control referred to in
-Section~\ref{sec:memory_chain}: RQRC($\lambda$) with TBPTT(1) on a cell whose recurrent
+Section~\ref{sec:memory_chain}, namely RQRC($\lambda$) with TBPTT(1) on a cell whose recurrent
 parameters stay at initialisation. A random \gls{rtu} with $\rho \approx 0.997$ and the
 eligibility trace solve $L{=}16$ in about half the seeds and nothing beyond $L{=}32$, and a
 frozen minGRU solves nothing, so the trained recurrence is required and a long-retention
@@ -1090,7 +1090,7 @@ minGRU & $1$ & $-0.02$ & $-0.01$ & $-0.01$ & $0.01$ & -- & $-0.03$ & $0.04$ \\
 \section{Hyperparameters}
   \label{sec:hyperparameters}
 
-We used fully connected networks of width $64$ with a single hidden block for MemoryChain and POPGym, and of width $128$ with two hidden blocks for Masked MuJoCo, following \citet{sharifnassab2026intentional}. All use LeakyReLU activations with LayerNorm \citep{ba2016layer} before each activation. On masked MuJoCo the \gls{ppo} baseline is given the same body as the streaming agents, two width-$128$ blocks with LayerNorm, LeakyReLU and the same $90\%$ sparse initialisation, and no projection after the recurrence, so that the comparison is at matched capacity: $139{,}405$ parameters against $141{,}709$, the difference being the streaming actor's state-dependent standard deviation head. It keeps its own orthogonal head initialisations, which are a stability device rather than a capacity choice. On MemoryChain and POPGym it keeps its standard width-$64$ $\tanh$ network with orthogonal initialisation. A single \gls{rtu}
+We used fully connected networks of width $64$ with a single hidden block for MemoryChain and POPGym, and of width $128$ with two hidden blocks for Masked MuJoCo, following \citet{sharifnassab2026intentional}. All use LeakyReLU activations with LayerNorm \citep{ba2016layer} before each activation. On masked MuJoCo the \gls{ppo} baseline is given the same body as the streaming agents, two width-$128$ blocks with LayerNorm, LeakyReLU and the same $90\%$ sparse initialisation, and no projection after the recurrence, so that the comparison is at matched capacity, $139{,}405$ parameters against $141{,}709$, the difference being the streaming actor's state-dependent standard deviation head. It keeps its own orthogonal head initialisations, which are a stability device rather than a capacity choice. On MemoryChain and POPGym it keeps its standard width-$64$ $\tanh$ network with orthogonal initialisation. A single \gls{rtu}
 layer of hidden dimension $192$ is inserted between the input and
 output blocks. We used separate networks for the policy and value
 functions. For stream RAC($\lambda$) we used softmax policy parameterization in
@@ -1104,7 +1104,7 @@ value networks are listed in the experiment-specific tables below. RQRC($\lambda
 uses SGD with global-norm gradient clipping at $1.0$ and learning rates
 $10^{-4}$ for the Q-network and $10^{-5}$ for the auxiliary
 $h$-network. For the \gls{ppo} baseline we used the
-hyperparameters reported by \citet{elelimy2024real}, including their real-time update:
+hyperparameters reported by \citet{elelimy2024real}, including their real-time update, namely
 a rollout of $2048$ steps, each stored with its own \gls{rtrl} sensitivity, split into
 $32$ minibatches of single steps.
 
@@ -1327,7 +1327,7 @@ $\eta$                                 & $0.1$ \\
 
 
   The contribution to either parent algorithm is the per-step gradient
-  computation: each network maintains an RTU hidden state $\boldsymbol{h}$ and a
+  computation, where each network maintains an RTU hidden state $\boldsymbol{h}$ and a
   forward-mode RTRL sensitivity matrix $S = \partial \boldsymbol{h} / \partial \boldsymbol{\psi}$,
   both advanced once per environment step, and gradients of any scalar
   depending on $\boldsymbol{h}$ are computed from $S$. Following the
@@ -1467,7 +1467,7 @@ each choice of per-step gradient and exchanging the order of summation,
 which are the weights of Proposition~\ref{prop:composition}. Since
 $\boldsymbol{\Phi}_{k,k}$ is the identity, the $i=k$ term of
 $\boldsymbol{\omega}_k^{\mathrm{\gls{rtrl}}}$ is exactly
-$\boldsymbol{\omega}_k^{\mathrm{TBPTT(1)}}$: exact \gls{rtrl} adds the contributions
+$\boldsymbol{\omega}_k^{\mathrm{TBPTT(1)}}$, since exact \gls{rtrl} adds the contributions
 of all \emph{future} states whose value depends on $\boldsymbol{h}_k$, and never
 removes credit that TBPTT(1) already assigns.
 
@@ -1486,13 +1486,13 @@ $m = i-k$ and $n = T-k$,
 \end{equation}
 for $\rho \neq \gamma\lambda$, which proves the proposition and recovers the
 dominant mode of \eqref{eq:joint-system}. The convolution of two geometric sequences decays at the rate of the slower one, giving the two
-regimes: for $\rho < \gamma\lambda$ the bound is $\mathcal{O}((\gamma\lambda)^{n})$, the same
+regimes. For $\rho < \gamma\lambda$ the bound is $\mathcal{O}((\gamma\lambda)^{n})$, the same
 order as TBPTT(1), so maintaining $\boldsymbol{S}_t$ exactly changes the bound on the decay by at
 most a constant. For $\rho > \gamma\lambda$ it is $\mathcal{O}(\rho^{\,n})$, larger than the
 TBPTT(1) weight by a factor $(\rho/\gamma\lambda)^{n}$. In the boundary case
 $\rho = \gamma\lambda$, encountered when a gated recurrence saturates towards perfect retention,
 the sum has $n+1$ terms of equal size and the bound carries an extra factor of $n+1$. These are
-upper bounds throughout: $\|\boldsymbol{\Phi}_{i,k}\| \le \rho^{\,i-k}$ gives no matching lower
+upper bounds throughout, since $\|\boldsymbol{\Phi}_{i,k}\| \le \rho^{\,i-k}$ gives no matching lower
 bound on a sum whose terms may cancel, and Section~\ref{sec:weights} measures exactly such
 cancellation for \gls{rtu}, whose coherence falls to $0.23$. The measured decay rates are
 therefore consistent with the bound rather than a confirmation of a predicted rate. Collecting the three cases gives
@@ -1513,7 +1513,7 @@ $\boldsymbol{\omega}_k^{\mathrm{\gls{rtrl}}}$ additionally contains
 $\boldsymbol{c}_i$ for $i > k$ weighted by $\boldsymbol{\Phi}_{i,k}$, the dependence
 of \emph{future} values on $\boldsymbol{h}_k$. Only the latter is propagation of
 credit through the state. A large trace weight therefore does not by itself
-substitute for the recurrent gradient: it does so only when the intermediate
+substitute for the recurrent gradient, and does so only when the intermediate
 values are already informative about the eventual dependency, so that shaping
 $\boldsymbol{c}_k$ is sufficient. Diagnostics in which the value at the cue step
 must itself predict the terminal reward have this property, whereas tasks in which
@@ -1587,7 +1587,7 @@ Equation~\eqref{eq:err_bound}: longer credit-assignment horizons require the
 recurrence to retain memory over more steps, raising the effective contraction
 constant and amplifying the bound.
 
-The two algorithms differ in absolute staleness level: stream RAC($\lambda$)
+The two algorithms differ in absolute staleness level, and stream RAC($\lambda$)
 staleness is consistently higher than RQRC($\lambda$) staleness and grows more
 steeply with $K$. We attribute this gap to the optimizer rather than the
 algorithm. Stream RAC($\lambda$) uses ObGD~\citep{elsayed2024streaming} with
@@ -1625,7 +1625,7 @@ term dominates.
 \label{sec:staleness-proof}
 
 In the nonlinear setting, the \gls{rtrl} sensitivity matrix maintained by an
-\gls{rtu} layer incurs a \emph{staleness error}: immediate Jacobians
+\gls{rtu} layer incurs a \emph{staleness error}, since immediate Jacobians
 accumulated at earlier steps were evaluated at parameters that the
 optimizer has since moved away from. We bound this error and give a
 second-order correction that reduces it from $\mathcal{O}(\eta)$ to
@@ -1760,7 +1760,7 @@ sum evaluates to $T(T+1)/2$ and
 \end{equation}
 so a recurrence that retains its state perfectly still incurs staleness that is
 bounded on any finite episode, growing at most quadratically in its length rather
-than diverging. The two factors of $T$ have distinct origins: one counts the
+than diverging. The two factors of $T$ have distinct origins, where one counts the
 contributions accumulated in the sensitivity matrix, and one measures how far the
 parameters have moved since the oldest of them was injected.
 
@@ -1798,7 +1798,7 @@ The additive term $\boldsymbol{J}_t\, \boldsymbol{\Omega}_{t-1}\, \Delta\boldsym
 the leading-order staleness injection, reducing the residual error from
 $\mathcal{O}(\|\Delta\boldsymbol{\psi}\|)$ to $\mathcal{O}(\|\Delta\boldsymbol{\psi}\|^2)$.
 
-Storing $\boldsymbol{\Omega}_t$ exactly is intractable: since $\boldsymbol{I}_t$ has shape
+Storing $\boldsymbol{\Omega}_t$ exactly is intractable, since $\boldsymbol{I}_t$ has shape
 $|h| \times p$, $\boldsymbol{\Omega}_t$ is a rank-three tensor of shape
 $|h| \times p \times p$ requiring $\mathcal{O}(|h|\, p^2)$ memory. A
 parameter-wise diagonal approximation,
