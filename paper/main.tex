@@ -917,8 +917,8 @@ as a prediction of Proposition~\ref{prop:composition}.
 
 We use $\lambda = 0.99$ for masked MuJoCo throughout. Both source papers use $0.8$, which was
 selected on fully observed control where no part of the network has to integrate an
-observation stream. We did not sweep \gls{ppo}'s GAE $\lambda$, which stays at the $0.95$ of
-\citet{elelimy2024real}; a reader should weigh the comparison accordingly.
+observation stream. \gls{ppo}'s GAE $\lambda$ stays at the $0.95$ of \citet{elelimy2024real},
+which Section~\ref{sec:mujoco} brackets on both sides and finds to be the top of the bracket.
 
 The value does not transfer. Sweeping the same three settings elsewhere places the optimum in a
 different place on every benchmark. On trace conditioning with \gls{rtu}, the return error at
